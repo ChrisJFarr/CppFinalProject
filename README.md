@@ -85,8 +85,27 @@ Modify this to center around 255/2? Perhaps with relu, negatives are never neede
 What about the outputs? Sigmoid... are negatives needed?
 
 class BaseModel
-  Manages multi-threading and generic components
+  This class manages multi-threading and generic components
+  copy constructor (copies are used in the thread functions)
+    loop over and copy the modelVector to the new object
+  implement the rule of five
+
+  createModelThread
+    This function copies the modelGraph
+    This function creates a thread, copies the modelVector, then loops forever
+    loop over modelVector 
+    copy each layer to local modelVector
+    reconnect the local graph
+    loop forever 
+      wait to get data from the messageQueue
+      perform forward pass
+      return the data through the messageQueue
+  messageQueue
+    each copy of the base model maintains its own message queue
   forward
+    get data somehow
+    wait until modelThread is not busy
+    send data through the messageQueue
   backward
   **(layers implement *getParams()* and *setParams()*)**
   save
@@ -95,29 +114,44 @@ class BaseModel
     write parameters to file in order of layers 
   load
     open file
-    loop forever
     loop over layers
     ask layer if it needs params
     if needs then load line and pass to setParams()
     else go to next layer
 
 class MyModel: public BaseModel
+  This class contains the models architecture instructions 
+  constructor
+    call MyModel::modelInstructions to populate the modelVector and paramVector
+    call BaseModel::constructor
   Problem-specific implementation
+  
+  buildModelGraph (this happens once)
+    This is implemented specific to model architecture
+    Contains instructions for and builds the model graph
+    populate modelVector
+    Initialize layers in sequential order
+    Connect layers
   forward
+    this can be called directly, or on a copy
+    takes in inputs
+    loop over 
   backward
 
-The BaseModel class manages the building of new graphs, loading and saving weights/params,
-It protects the data too..
+What is the process of spinning up threads during training: TODO Pick up here!!!!!!!!!!!!!!!
+Initialize MyModel
+Determine number of threads to spin up, smallest of MAX_THREADS and BATCH_SIZE
+Use createModelThread to spin up each thread and store in a vector
+
+What is the process of looping through the data while training?
 
 
-What is the process of spinning threads during training:
-Create a model thread for each n in min(MAX_THREADS, BATCH_SIZE) BaseModel::createModelThread() er somthin
-  The model threads share memory
-  Shared memory is protected by the BaseModel class
+
+<!-- loop forever 
+wait to get data
+perform forward pass -->
 
 Loop for n-epochs
-
-
 
 model build instructions to allow for threaded training when batch-size>1
 Vector of connected layers
@@ -132,24 +166,44 @@ Some layers need hyperparams: n-units, input/output shapes,
 
 Also need to randomly initialize model weights.
 
-
-build model graph
-  Loop over modelVector and paramVector
-  Initialize layer class with corresponding LayerParams
-  Incrementally intialize and add appropriate layers
-  Connect layers
-
 vector<uint8_t> paramVector
 
 class BaseLayer
-  parent layers
-  child layers
+  copy constructor (this is called when copying the modelVector)
+    Deep copy the inputs and outputs... where are instructions for input/output shapes?
+    Copy the shared pointers of parameters to the new object
+  parentLayer
+  childLayer
+  connectParent
+    other.childLayer = this
+    this.parentLayer = other
+  std::unique_prt<2d array> inputs
+  how is data stored and managed within a layer?
+  inputs
+    they come from the parent layer
+    stored on the heap
+    child layers store the pointer from forward pass to use for backward pass
+  outputs
+    created on the heap
+    create a unique pointer on the forward pass
+    moved to child layer on forward pass
+  parameters
+    shared across all layers across threads, layers have read-only access
+
+
+
   vector<uint8_t> paramVector
   forward
     store inputs, move pointer from parent class
   backward
 
+class Input: public BaseLayer
+  input shape
+  on forward pass, takes inputs pointer and moves it to child layer
+
 class Dense: public BaseLayer
+  compute output shape 
+    uses input shape from parent
   regularize
   parameters, protected with mutex, wait to update weights until backward pass is done
   weights, bias
@@ -160,8 +214,8 @@ class Relu: public BaseLayer
   on forward: relu function
   on backward: if relu function of input >0 then 1 else 0 * gradients
 class Sigmoid: public BaseLayer
-    forward: sigmoid function in inputs
-    backward: sigmoid * (1-sigmoid)
+  forward: sigmoid function in inputs
+  backward: sigmoid * (1-sigmoid)
 class Dropout: public BaseLayer (nice to have)
   Perhaps this is optional if I get extra time.
   During training, randomly drop connections
@@ -174,6 +228,7 @@ class Softmax: public BaseLayer
 class Optimizer
   Use adam
   Initialize with default lr and include decay param
+  This class has read/write access to the shared model parameters
 
 Efficient computation resource: https://gist.github.com/nadavrot/5b35d44e8ba3dd718e595e40184d03f0
 For efficiency threads can be used for multiple simultaneous examples to fill
