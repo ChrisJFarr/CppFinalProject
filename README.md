@@ -69,27 +69,107 @@ including parameter update information. As a forward pass occurs, (decide either
 perhaps I use the heap (more space?) and keep it static, so it overrides it on each forward and 
 backward pass without allocating new memory.
 
+Output shapes of a layer on the foward pass are the same size as the gradients on the backward pass.
+
+https://stackoverflow.com/questions/11935030/representing-a-float-in-a-single-byte
+To save memory, use 8-bit precision
+float toFloat(uint8_t x) {
+    return x / 255.0e7;
+}
+uint8_t fromFloat(float x) {
+    if (x < 0) return 0;
+    if (x > 1e-7) return 255;
+    return 255.0e7 * x; // this truncates; add 0.5 to round instead
+}
+Modify this to center around 255/2? Perhaps with relu, negatives are never needed anyways
+What about the outputs? Sigmoid... are negatives needed?
 
 class BaseModel
   Manages multi-threading and generic components
   forward
   backward
+  **(layers implement *getParams()* and *setParams()*)**
   save
+    loop over layers
+    extract parameters with getParams()
+    write parameters to file in order of layers 
   load
-class Model: public BaseModel
+    open file
+    loop forever
+    loop over layers
+    ask layer if it needs params
+    if needs then load line and pass to setParams()
+    else go to next layer
+
+class MyModel: public BaseModel
   Problem-specific implementation
   forward
   backward
 
-class BaseLayer (needed?)
+The BaseModel class manages the building of new graphs, loading and saving weights/params,
+It protects the data too..
+
+
+What is the process of spinning threads during training:
+Create a model thread for each n in min(MAX_THREADS, BATCH_SIZE) BaseModel::createModelThread() er somthin
+  The model threads share memory
+  Shared memory is protected by the BaseModel class
+
+Loop for n-epochs
+
+
+
+model build instructions to allow for threaded training when batch-size>1
+Vector of connected layers
+vector<BaseLayer> modelVector
+Hyperparameters
+vector<vector<uint8_t>> hyperParamsVector
+
+vector<vector<>>
+
+Hyperparameters vs model parameters...
+Some layers need hyperparams: n-units, input/output shapes, 
+
+Also need to randomly initialize model weights.
+
+
+build model graph
+  Loop over modelVector and paramVector
+  Initialize layer class with corresponding LayerParams
+  Incrementally intialize and add appropriate layers
+  Connect layers
+
+vector<uint8_t> paramVector
+
+class BaseLayer
+  parent layers
+  child layers
+  vector<uint8_t> paramVector
+  forward
+    store inputs, move pointer from parent class
+  backward
+
 class Dense: public BaseLayer
-  regularize (implement here or optimizer?)
+  regularize
   parameters, protected with mutex, wait to update weights until backward pass is done
+  weights, bias
+  on forward pass, compute output and store the inputs
+  on backward pass, compute derivative of inputs wrt parameters, compute derivative of gradients wrt inputs 
+
 class Relu: public BaseLayer
+  on forward: relu function
+  on backward: if relu function of input >0 then 1 else 0 * gradients
 class Sigmoid: public BaseLayer
-class Dropout: public BaseLayer
+    forward: sigmoid function in inputs
+    backward: sigmoid * (1-sigmoid)
+class Dropout: public BaseLayer (nice to have)
+  Perhaps this is optional if I get extra time.
   During training, randomly drop connections
   During inference, compute average somehow... TODO I need to figure this out find a paper
+class Softmax: public BaseLayer
+  forward: safe softmax
+  backward: ? need work here
+  https://github.gatech.edu/cfarr31/DeepLearning7643/blob/master/assignment1/models/softmax_regression.py
 
 class Optimizer
   Use adam
