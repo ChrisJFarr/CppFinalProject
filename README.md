@@ -81,6 +81,8 @@ uint8_t fromFloat(float x) {
     if (x > 1e-7) return 255;
     return 255.0e7 * x; // this truncates; add 0.5 to round instead
 }
+Perhaps use 16 bit precision centered around 0 for the 
+
 Modify this to center around 255/2? Perhaps with relu, negatives are never needed anyways
 What about the outputs? Sigmoid... are negatives needed?
 
@@ -90,7 +92,7 @@ class BaseModel
     loop over and copy the modelVector to the new object
   implement the rule of five
 
-  createModelThread
+  createModelThread (i think this function is passed to a thread)
     This function copies the modelGraph
     This function creates a thread, copies the modelVector, then loops forever
     loop over modelVector 
@@ -99,9 +101,17 @@ class BaseModel
     loop forever 
       wait to get data from the messageQueue
       perform forward pass
-      return the data through the messageQueue
-  messageQueue
-    each copy of the base model maintains its own message queue
+      perform backward pass
+      package up gradients
+      send gradients to messageQueue
+      alert that message is waiting
+  messageQueue (This needs worked out)
+    ?each copy of the base model maintains its own message queue
+    they don't need there own queue, only 1 is needed
+    send data to queue, modelThreads pull data and return gradients
+    each thread does need access to the queue
+  Perhaps 2 queues, one for storing input data and the other for storing gradients?
+
   forward
     get data somehow
     wait until modelThread is not busy
@@ -143,13 +153,9 @@ Initialize MyModel
 Determine number of threads to spin up, smallest of MAX_THREADS and BATCH_SIZE
 Use createModelThread to spin up each thread and store in a vector
 
+
 What is the process of looping through the data while training?
 
-
-
-<!-- loop forever 
-wait to get data
-perform forward pass -->
 
 Loop for n-epochs
 
@@ -189,46 +195,60 @@ class BaseLayer
     moved to child layer on forward pass
   parameters
     shared across all layers across threads, layers have read-only access
-
-
-
-  vector<uint8_t> paramVector
-  forward
-    store inputs, move pointer from parent class
-  backward
+  getParams
+  setParams
+  hasParams returns boolean
 
 class Input: public BaseLayer
   input shape
   on forward pass, takes inputs pointer and moves it to child layer
 
 class Dense: public BaseLayer
-  compute output shape 
-    uses input shape from parent
-  regularize
+  constructor
+    compute output shape 
+      uses input shape from parent and units
+    create array of size of output shape on the heap use shared pointer handle
+  regularization controlled by hyperparam
   parameters, protected with mutex, wait to update weights until backward pass is done
   weights, bias
-  on forward pass, compute output and store the inputs
-  on backward pass, compute derivative of inputs wrt parameters, compute derivative of gradients wrt inputs 
+  on forward pass, compute outputs and move pointer to child layer
+  on backward pass, compute derivative of inputs wrt parameters, compute derivative of gradients wrt inputs
 
 class Relu: public BaseLayer
   on forward: relu function
   on backward: if relu function of input >0 then 1 else 0 * gradients
-class Sigmoid: public BaseLayer
-  forward: sigmoid function in inputs
-  backward: sigmoid * (1-sigmoid)
-class Dropout: public BaseLayer (nice to have)
-  Perhaps this is optional if I get extra time.
-  During training, randomly drop connections
-  During inference, compute average somehow... TODO I need to figure this out find a paper
+
 class Softmax: public BaseLayer
   forward: safe softmax
   backward: ? need work here
   https://github.gatech.edu/cfarr31/DeepLearning7643/blob/master/assignment1/models/softmax_regression.py
 
+class CrossEntropyLoss
+  targets are passed directly to this layer
+  no child layer
+  forward: compute loss
+  backward: move loss to parent layer
+
 class Optimizer
   Use adam
   Initialize with default lr and include decay param
   This class has read/write access to the shared model parameters
+
+function train (initializes model, trains, and stores final parameters)
+  perform setup
+  loop for n-epochs
+  loop over batch-size
+  load example from train data
+
+  Each thread needs to move their result, parameter updates, to the batch array
+  Loop over the parameter updates to compute the average update
+    divide each update by batch-size then add to parameter
+
+  how do I aggregate the data from batches for the update?
+  
+  what is the forward/backward process of a thread?
+
+
 
 Efficient computation resource: https://gist.github.com/nadavrot/5b35d44e8ba3dd718e595e40184d03f0
 For efficiency threads can be used for multiple simultaneous examples to fill
