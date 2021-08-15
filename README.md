@@ -86,6 +86,15 @@ Perhaps use 16 bit precision centered around 0 for the
 Modify this to center around 255/2? Perhaps with relu, negatives are never needed anyways
 What about the outputs? Sigmoid... are negatives needed?
 
+
+Steps today
+* Clean up the design and review
+* Build the shell with classes and functions
+Tommorrow or (today if time)
+* Pull in mnist digits data
+* Build data pipeline objects and loops
+
+
 class BaseModel
   This class manages multi-threading and generic components
   copy constructor (copies are used in the thread functions)
@@ -94,29 +103,40 @@ class BaseModel
 
   createModelThread (i think this function is passed to a thread)
     This function copies the modelGraph
-    This function creates a thread, copies the modelVector, then loops forever
+    This function creates a thread, copies the modelVector, then loops forever (how can I reduce cost of looping)
     loop over modelVector 
     copy each layer to local modelVector
-    reconnect the local graph
+    reconnect the local graph (loop over vector and call connectParent from the child, passing the parent)
     loop forever 
       wait to get data from the messageQueue
-      perform forward pass
-      perform backward pass
-      package up gradients
-      send gradients to messageQueue
-      alert that message is waiting
-  messageQueue (This needs worked out)
-    ?each copy of the base model maintains its own message queue
-    they don't need there own queue, only 1 is needed
-    send data to queue, modelThreads pull data and return gradients
-    each thread does need access to the queue
-  Perhaps 2 queues, one for storing input data and the other for storing gradients?
+      can the threads claim the parameters while performing forward and backward passes for extra safety?
+        such as a shared control object that doesn't lock out the other threads
+      perform forward pass, call BaseModel::forward
+      if targets are present in data object
+        perform backward pass, call BaseModel::backward
+        call BaseModel::getGradients
+        send gradients to messageQueue
+      else
+        call BaseModel::getOutputs
+        package up outputs in output struct
+        get the outputs from the final layer (the loss layer hold thems)
+        send outputs to messageQueue
+        problem: now model is stuck in forward position
+          move pointers from child back to parent to setup for another forward pass
+          Maybe add a function for resetting for forward position to the layers?
 
-  forward
-    get data somehow
-    wait until modelThread is not busy
-    send data through the messageQueue
-  backward
+  messageQueue (This needs worked out)
+  2 queues, one for inputs and one for outputs
+  MessageQueue<InputData> inputQueue
+    x-data
+    y-data
+
+  MessageQueue<OutputData> outputQueue
+    model outputs
+    parameter gradients
+  
+  struct InputData{x-data, y-data(optional)}
+  struct OutputData{outputs, vector<shared_ptr<floattype>>gradients}
   **(layers implement *getParams()* and *setParams()*)**
   save
     loop over layers
@@ -128,6 +148,25 @@ class BaseModel
     ask layer if it needs params
     if needs then load line and pass to setParams()
     else go to next layer
+  forward
+    param: inputs which is the rvalue of a unique pointer to a 1d array
+    loop over layers
+    call forward on each layer except the last (loss is computed in BaseModel::backward)
+    only the input layer requires an argument for forward, or another method could be used to move value to inputLayer
+  backward
+    call forward on the final layer, this either requires an argument or set an attribute for target
+    call backward on each layer (including the loss layer)
+  OutputData getGradients()
+    this returns a struct with gradients
+    loop over layers
+    ask if they have params, hasParams
+    call getGradients() on the layer to get the parameter gradients
+    copy the shared pointer to vector in output struct
+  
+  OutputData getOutputs()
+    this returns a struct with prediction/model outputs
+    they should be waiting in the inputs of the final layer (loss layer)
+
 
 class MyModel: public BaseModel
   This class contains the models architecture instructions 
@@ -142,30 +181,8 @@ class MyModel: public BaseModel
     populate modelVector
     Initialize layers in sequential order
     Connect layers
-  forward
-    this can be called directly, or on a copy
-    takes in inputs
-    loop over 
-  backward
-
-What is the process of spinning up threads during training: TODO Pick up here!!!!!!!!!!!!!!!
-Initialize MyModel
-Determine number of threads to spin up, smallest of MAX_THREADS and BATCH_SIZE
-Use createModelThread to spin up each thread and store in a vector
 
 
-What is the process of looping through the data while training?
-
-
-Loop for n-epochs
-
-model build instructions to allow for threaded training when batch-size>1
-Vector of connected layers
-vector<BaseLayer> modelVector
-Hyperparameters
-vector<vector<uint8_t>> hyperParamsVector
-
-vector<vector<>>
 
 Hyperparameters vs model parameters...
 Some layers need hyperparams: n-units, input/output shapes, 
@@ -175,16 +192,17 @@ Also need to randomly initialize model weights.
 vector<uint8_t> paramVector
 
 class BaseLayer
-  copy constructor (this is called when copying the modelVector)
-    Deep copy the inputs and outputs... where are instructions for input/output shapes?
+  copy constructor (this is called when copying the modelVector should be done for threads only)
+    No copying of the inputs/outputs, just need to declare a unique ptr without allocation for the inputs
     Copy the shared pointers of parameters to the new object
+    layer parameters are owned by the layer, copies of the parameters and grads are shared pointer
+
   parentLayer
   childLayer
-  connectParent
+  connectParent (the child is called and passed the parent)
     other.childLayer = this
     this.parentLayer = other
   std::unique_prt<2d array> inputs
-  how is data stored and managed within a layer?
   inputs
     they come from the parent layer
     stored on the heap
@@ -195,24 +213,66 @@ class BaseLayer
     moved to child layer on forward pass
   parameters
     shared across all layers across threads, layers have read-only access
-  getParams
-  setParams
-  hasParams returns boolean
+  hasParams returns boolean defaults to false unless overriden
+  getParams()
+    throw error if !hasParams
+    this needs to coordinate with the training op and save
+    return vector of pointers to the params vector<shared_ptr<paramdatatype[]>>
+  setParams()
+    throw error if !hasParams
+    this needs to coordinate with BaseModel::load
 
 class Input: public BaseLayer
-  input shape
-  on forward pass, takes inputs pointer and moves it to child layer
+  int inputShape;
+  forward
+    validate inputs shape (to handle incorrect input, should throw exception, also coordinate with the thread call to handle)
+    returns pointer with move
 
 class Dense: public BaseLayer
   constructor
     compute output shape 
       uses input shape from parent and units
     create array of size of output shape on the heap use shared pointer handle
+    vector<shared_ptr<paramdatatype[]>>_params; owned by layer
+    vector<shared_ptr<paramdatatype[]>>_grads; owned by layer
+    create array for weights, add pointer to array to _params vector
+    create array for weights gradients, add pointer to _grads vector
+    create array for bias, add pointer to _params vector
+    create array for bias gradients, add pointer to _grads vector
+    hasParams = true;
+
   regularization controlled by hyperparam
   parameters, protected with mutex, wait to update weights until backward pass is done
-  weights, bias
-  on forward pass, compute outputs and move pointer to child layer
-  on backward pass, compute derivative of inputs wrt parameters, compute derivative of gradients wrt inputs
+  How does the train op get gradients?
+  forward
+    compute outputs and move pointer to child layer
+  backward
+    compute derivative of inputs wrt parameters, compute derivative of gradients wrt inputs
+
+Figure out the outputs data for each layer TODO Working here!!!!!
+
+  On each call to forward
+  The layer creates memory for outputs on the stack using unique_ptrs 
+  They compute the output then move it to their child layer
+
+  When forward is called with targets
+
+  Delete the below
+
+  This can either be reused or disposed of each time, for now try the stack..?
+  THe layer knows ahead of time the input and output shapes
+  If initialized with memory for inputs/outputs, then the layer needs to own the data for reuse.
+
+  Lets say then...
+  each layer initializes and owns their outputs...
+  How then does the final output go?
+  Instead, they initialize and move out their outputs
+  Then the following layer
+  If its an output layer, it returns the outputs with move instead of moving to child
+  So... to allow any layer to be an output, it needs to either be void or return?
+  Ah, it needs a special output layer to be the child
+  The output layer should easily convert to the message structs used
+
 
 class Relu: public BaseLayer
   on forward: relu function
@@ -234,21 +294,63 @@ class Optimizer
   Initialize with default lr and include decay param
   This class has read/write access to the shared model parameters
 
+  How does this one work? TODO work on this part
+  regularization occurs already from the layers with params (only Dense)
+  It can get gradients... but does it need anything else like the params for regularization?
+  This takes in the gradients for the whole batch
+  Computes the update
+  Requests write access to the parameters
+  updates the parameters
+  releases the lock
+
 function train (initializes model, trains, and stores final parameters)
   perform setup
+  Initialize MyModel
+  Determine number of threads to spin up, smallest of MAX_THREADS and BATCH_SIZE
+  Use createModelThread to spin up each thread and store in a vector
+  ask the model for trainable the parameters (these are shared among all threads)
   loop for n-epochs
-  loop over batch-size
-  load example from train data
+    TODO Should I load all train data at once? How else to shuffle?
+    loop for batch-size / total-examples
+      loop over batch-size
+        load example from train data into what object?
+        send data to message queue
+      wait until gradient-queue == batch-size
+      wait until parameters are freed up (for extra safety)
+      Loop over the parameter updates to compute the average update
+        divide each update by batch-size then add to parameter
+    
+    loop over validation data
+    should validation data persist?
+    create vector of pointers to x and y data objects
+    
+    todo start here!!
+    send data to queue without targets to get predictions
 
-  Each thread needs to move their result, parameter updates, to the batch array
-  Loop over the parameter updates to compute the average update
-    divide each update by batch-size then add to parameter
 
-  how do I aggregate the data from batches for the update?
-  
-  what is the forward/backward process of a thread?
+How will predictions be generated
+Need to predict over a validation dataset
+Use validation performance to stop training
 
+only need the forward pass
+threading would still be useful
+can I reuse the threads from the gradient calc?
 
+Declare 2 structs to use as template types for the queues
+
+From train loop to message queue
+struct InputData
+  x-data
+  y-data
+
+TODO What is x and y data type?
+x-data: one example is a vector of floats (or compressed type)
+y-data: int target
+
+From model thread to message queue
+struct OutputData
+  model outputs
+  parameter gradients
 
 Efficient computation resource: https://gist.github.com/nadavrot/5b35d44e8ba3dd718e595e40184d03f0
 For efficiency threads can be used for multiple simultaneous examples to fill
