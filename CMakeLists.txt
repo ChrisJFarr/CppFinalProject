@@ -5,6 +5,6 @@ add_definitions(-std=c++17)
 set(CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 
-project(HelloWorld)
+project(NeuralNetwork)
 
-add_executable(HelloWorld src/main.cpp)
+add_executable(NeuralNetwork src/model.cpp src/model.h src/main.cpp)

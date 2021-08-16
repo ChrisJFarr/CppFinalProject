@@ -165,6 +165,8 @@ class MyModel: public BaseModel
     Initialize layers in sequential order
     Connect layers
 
+TODO START HERE!!! Building shell
+
 class BaseLayer
   copy constructor (this is called when copying the modelVector should be done for threads only)
     No copying of the inputs/outputs, just need to declare a unique ptr without allocation for the inputs
