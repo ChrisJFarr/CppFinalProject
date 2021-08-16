@@ -32,44 +32,18 @@ Purpose: build a lighweight and high performing computational graph to implement
 a relatively simple neural network with a general training and inference operation when given 
 input data. With a general implementation the final executable, once trained, is able to
 perform prediction on an input file to an output file. Then evaluate can analyze a folder
-of output files for performance?
+of output files for performance.
 
-Components:
+Summary:
+  For efficiency during the training process, multi-threading is to be used for computing the loss and
+  gradients of examples concurrently. Two message queues are used for passing data to model threads
+  and for returning the information for computing the parameter updates. Parameters are shared by all
+  threads and model threads only have (and need) read access. Once a batch has finished processing
+  the parameter updates can be computed and updated in place once model threads have all released
+  their access.
 
-Data can be moved from node to node using shared pointers. Each node
-creates new data to write to, then passes a shared or unique pointer to 
-the child nodes during forward pass and parent nodes during backward pass.
-On the backward pass there are dependent connections to the parameters as
-well as the layer inputs. On the forward pass, the pointers are kept 
-for the backward pass. Only thing is, there is no need to allocate new memory
-when the same graph (with same shape and type of objects) is needed time and time again. 
-
-For multithreading, each thread contains the forward and backward pass to compute the 
-update. A full batch, populated by one thread at a time, is used for the final update. 
-Therefore concurrency seems to rely on batch-size > 1. Each thread is a copy of the graph
-and the data is built on the first usage. But how to keep the graph intact between examples?
-The threads can be kept in a vector, when one returns... actually we just need a summary
-from each thread once the update has been computed for each node. This can be
-stored in a single graph and incrementally updated.
-
-Each thread creates a graph and the graph persists throughout training.
-Or... it could be risky this route and safer to allocate memory for each
-new example.
-
-Concurrency within a single graph....
-
-Simplify, I don't need to use a graph, node, and edge concept.
-I can just create different layer classes and then a model class.
-However.. does using a graph allow for concurrency that otherwise wouldn't?
-Perhaps a model class can still use threads to compute updates for a single example.
-
-Building on concept of implementing layers. Each thread builds a graph, which
-is really just a model. But the model class has more information than just a model
-including parameter update information. As a forward pass occurs, (decide either allocate memory or overwrite)
-perhaps I use the heap (more space?) and keep it static, so it overrides it on each forward and 
-backward pass without allocating new memory.
-
-Output shapes of a layer on the foward pass are the same size as the gradients on the backward pass.
+  To evaluate the model performance and training both the outputs and layer gradients are returned 
+  from the train data set. A forward pass is only used for the validation data.
 
 https://stackoverflow.com/questions/11935030/representing-a-float-in-a-single-byte
 To save memory, use 8-bit precision
@@ -86,12 +60,13 @@ Perhaps use 16 bit precision centered around 0 for the
 Modify this to center around 255/2? Perhaps with relu, negatives are never needed anyways
 What about the outputs? Sigmoid... are negatives needed?
 
-
-Current Step
+Completed
 * Clean up the design and review
 
-Future
+Current Step
 * Build the shell with classes and functions
+
+Future
 * Pull in mnist digits data
 * Build data pipeline objects and loops
 * Start building in order as the data flows
@@ -331,7 +306,7 @@ function train (initializes model, trains, and stores final parameters)
       
       Outputs should also be collected (not just gradients) and passed to evaluation
         pass InputData::
-      TODO Total derivatives should be stored for training analysis to analyze gradient flow
+      Average derivatives should be stored for training analysis to analyze gradient flow
             but not just for parameters, but at every layer
     
     loop over validation data
@@ -348,10 +323,9 @@ function train (initializes model, trains, and stores final parameters)
 
     Use validation performance to stop training early
 
-
-  TODO function predict
-  TODO function evaluate
-
+  TODO function predict (populate folders with predictions for evaluation)
+  TODO function evaluate (should run on the test data)
+  TODO function accuracy, confusion matrix (used while training and for evaluate)
 
 Efficient computation resource: https://gist.github.com/nadavrot/5b35d44e8ba3dd718e595e40184d03f0
 For efficiency threads can be used for multiple simultaneous examples to fill
