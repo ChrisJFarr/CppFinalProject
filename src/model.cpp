@@ -7,7 +7,7 @@ BaseModel::BaseModel()
 {
     std::cout << "BaseModel::constructor" << std::endl;
 };
-BaseModel::BaseModel(BaseModel&)
+BaseModel::BaseModel(BaseModel& other)
 {
     std::cout << "BaseModel::copy-constructor" << std::endl;
     // copy constructor (copies are used in the thread functions)
@@ -135,8 +135,12 @@ MyModel::MyModel(): BaseModel()
   
 void MyModel::buildModelGraph(){
     // (this happens once)
+    // TODO I should think about adding a skip connection to the model
     // This is implemented specific to model architecture
     // Contains instructions for and builds the model graph
+    // This function needs to connect the graph (connect parent(s) to child layer(s))
+    // This function needs to initialize parameters, 
+    //  to do that, each child layer needs to know the output shape of parent layer
     // populate modelVector
     // Initialize layers in sequential order
     // Connect layers

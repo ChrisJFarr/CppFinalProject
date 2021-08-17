@@ -165,8 +165,6 @@ class MyModel: public BaseModel
     Initialize layers in sequential order
     Connect layers
 
-TODO START HERE!!! Building shell
-
 class BaseLayer
   copy constructor (this is called when copying the modelVector should be done for threads only)
     No copying of the inputs/outputs, just need to declare a unique ptr without allocation for the inputs
@@ -333,6 +331,49 @@ Efficient computation resource: https://gist.github.com/nadavrot/5b35d44e8ba3dd7
 For efficiency threads can be used for multiple simultaneous examples to fill
 up the batch. Then no need to parallelize the basic matrix function.
 OMP or MPI packages for threading the matrix loops
+
+
+TODO Design a matrix class
+  Use this class for all data objects
+    load data into a matrix((1,INPUT_SHAPE))
+    create a matrix for each parameter
+    create a matrix for calculations between layers
+
+  Excellent resource: https://medium.com/@furkanicus/how-to-create-a-matrix-class-using-c-3641f37809c7
+
+class Matrix
+  Matrix(shape)
+    rows, cols = shape
+    create a 2d vector of dtype
+
+  memory will always be shared
+  the underlying storage can be a 1d or 2d float vector (or any type)
+  default storage is a vector of float vectors
+  it should be initialized with a known shape
+  shape (rows, cols)
+  int[2] shape = (rows, cols);
+
+  private member
+  shared_ptr<vector<vector<float>>> _data
+
+  Override accessor
+  vector<float>& operator()(int, int);
+
+  mathMultiply(Matrix&)
+    use tensorflow's api, this should expect two matrices of exact same shape
+    and multiply this[j][k] * other[j][k]
+  operator*(Matrix&)
+    must be compatible shapes, rows of this must == columns of other
+    perform matrix multiplication
+    output to a new matrix
+  operator+(Matrix&)
+  dot(Matrix&)
+  Matrix transpose()
+
+  scalar operators
+  operator*(float&)
+
+
 
 main
   run options
