@@ -279,8 +279,53 @@ class Optimizer
   releases the lock
 
 
-This should become a class or part of a class!!!
+  class DataLoader
+  Reads fileName(train.csv)
+  Accepts %train, %test, %validation floats
+  Accepts bool header (skips first row if true)
+  Internally stores constants for _test, and _valid
 
+  This could instead be a dynamic loader
+  It gets the information about the available data, such as n-examples
+  Computes which indices belong to which dataset (indices should be shuffled)
+  Reads and stores subsets on demand, such as for batch-size and maybe a buffer
+  Perhaps for the validation and test it loads the full sets and stores
+  This would, however, require reading from the train file often when training
+  It also may not scale super well when large
+  Another option is to store the train-only data and randomly read from it
+
+
+  How long would it take to read the last 50 rows? (worst case for batch-size of 50)
+
+  analyze()
+  this should be called when constructed perhaps
+  open the data source file
+  learn and store the number of examples and the size/shape of each example
+  remember target is at the beginning of the line
+
+  clean()
+    scale the data from 0-1
+
+  parse()
+  this should be called after analyze() in the constructor
+  using size variables for trainSize, testSize, and validSize
+  parse the file and write data to _test and _valid
+  write the train to a new file in shuffled order
+  open train to allow loadBatch to work
+
+  loadBatch(int batchSize)
+  read from the open train file the next n==batchSize lines
+  clean
+  read directly into matrix objects...
+  return pointer to 
+
+  getTestData()
+  getValidData()
+
+
+
+This should become a class or part of a class!!!
+class TBD
 function train (initializes model, trains, and stores final parameters)
   perform setup
   Initialize MyModel

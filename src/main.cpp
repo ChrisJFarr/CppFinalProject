@@ -3,10 +3,11 @@
 #include <vector>
 #include <memory>
 #include "model.h"
+#include "utils.h"
 
+using namespace std;
 
 /*
-https://stackoverflow.com/questions/8286668/how-to-read-mnist-data-in-c
 Working with the data
 
 Will need to preprocess the data and store in an easier file type perhaps
@@ -94,7 +95,7 @@ void functionBlock()
     }
     //  shared ptr on stack, shared ptr on heap
     //  moving a unique pointer
-    std::unique_ptr<std::vector<std::vector<float>>> my2DArrayPtrDefinedMoved;
+    unique_ptr<vector<vector<MyDType>>> my2DArrayPtrDefinedMoved;
     my2DArrayPtrDefinedMoved = std::move(my2DArrayPtrDefined);
     // 2d vector using unique pointers
     for(int j=0;j<10;++j){for(int k=0;k<10;++k)
@@ -107,32 +108,59 @@ void functionBlock()
 
 int main() {
 
-    MyModel model;
 
-    std::cout << "Model declared at:" << &model << "\n";
-    MyModel newModel(model);
-    std::cout << "Model copy at:" << &newModel << std::endl;
-
-    // Test forward pass
-    std::cout << "Testing BaseModel::forward(std::unique_ptr<std::vector<float>> &&inputs);" << std::endl;
-    std::unique_ptr<std::vector<float>> inputs = std::make_unique<std::vector<float>>(std::vector<float>({.5, .5, .5}));
-    model.forward(std::move(inputs));
-
-    // Test backward pass
-    std::cout << "Testing BaseModel::backward(std::unique_ptr<std::vector<float>> &&targets);" << std::endl;
-    std::unique_ptr<std::vector<float>> targets = std::make_unique<std::vector<float>>(std::vector<float>({1.0, 0.0, 0.0}));
-    model.backward(std::move(targets));
-
-    // Declare outputs
-    OutputData outputData;
-
-    // Test BaseModel::getGradients(OutputData&)
-    std::cout << "Testing BaseModel::getGradients(OutputData&)" << std::endl;
-    model.getGradients(outputData);
+    ////////// Testing utils.h ///////////////////
     
-    // Test BaseModel::getOutputs(OutputData&)
-    std::cout << "Testing BaseModel::getGradients(OutputData&)" << std::endl;
-    model.getOutputs(outputData);
+    // Initialize DataLoader
+    DataLoader dataLoader("train.csv");
+
+    // Print number of train, test, and validation examples
+    // Print single example size (from Matrix class rows() cols())
+
+    // Print top 5 test examples
+    // Print top 5 validation examples
+    // Print top 5 train examples of a single batch
+
+    // Print the target distribution of a train batch
+    // Print the target distribution of test set
+    // Print the target distribution of validation set
+
+    //////// END OF TESTING utils.h //////////////
+
+
+    /////////// Testing model.h ///////////////////
+
+    // MyModel model;
+
+    // std::cout << "Model declared at:" << &model << "\n";
+    // MyModel newModel(model);
+    // std::cout << "Model copy at:" << &newModel << std::endl;
+
+    // // Test forward pass
+    // std::cout << "Testing BaseModel::forward(std::unique_ptr<Matrix> &&inputs);" << std::endl;
+    // // Create a 2d vector
+    // vector<vector<MyDType>> myInputs({{.5, .5, .5}});
+    // std::unique_ptr<Matrix> inputs = std::make_unique<Matrix>(std::move(myInputs));
+    // model.forward(std::move(inputs));
+
+    // // Test backward pass
+    // std::cout << "Testing BaseModel::backward(std::unique_ptr<Matrix> &&targets);" << std::endl;
+    // vector<vector<MyDType>> myTargets({{1.0, 0.0, 0.0}});
+    // std::unique_ptr<Matrix> targets = std::make_unique<Matrix>(std::move(myTargets));
+    // model.backward(std::move(targets));
+
+    // // Declare outputs
+    // OutputData outputData;
+
+    // // Test BaseModel::getGradients(OutputData&)
+    // std::cout << "Testing BaseModel::getGradients(OutputData&)" << std::endl;
+    // model.getGradients(outputData);
+    
+    // // Test BaseModel::getOutputs(OutputData&)
+    // std::cout << "Testing BaseModel::getGradients(OutputData&)" << std::endl;
+    // model.getOutputs(outputData);
+
+    //////// END OF TESTING model.h //////////////
 
     return 0;
 }

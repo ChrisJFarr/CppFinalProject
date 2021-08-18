@@ -80,13 +80,16 @@ void BaseModel::load()
     // else go to next layer
 }
 
-void BaseModel::forward(std::unique_ptr<std::vector<float>> &&inputs)
+void BaseModel::forward(std::unique_ptr<Matrix> &&inputs)
 {
     // Debugging
     std::cout << "inputs:";
-    for(float i: *inputs)
+    for(int r=0;r<inputs->rows();r++)
     {
-        std::cout << i << " ";
+        for(int c=0;c<inputs->cols();c++)
+        {
+            std::cout << (*inputs)(r, c) << " ";
+        }
     }
     std::cout << std::endl;
     // forward(unique_ptr<paramdatatype[]> inputs)
@@ -95,13 +98,16 @@ void BaseModel::forward(std::unique_ptr<std::vector<float>> &&inputs)
     // call forward on each layer except the last (loss is computed in BaseModel::backward)
     // only the input layer requires an argument for forward, or another method could be used to move value to inputLayer
 }
-void BaseModel::backward(std::unique_ptr<std::vector<float>> &&targets)
+void BaseModel::backward(std::unique_ptr<Matrix> &&targets)
 {
     // Debugging
     std::cout << "targets:";
-    for(float i: *targets)
+    for(int r=0;r<targets->rows();r++)
     {
-        std::cout << i << " ";
+        for(int c=0;c<targets->cols();c++)
+        {
+            std::cout << (*targets)(r, c) << " ";
+        }
     }
     std::cout << std::endl;
     // call forward on the final layer, this either requires an argument or set an attribute for target

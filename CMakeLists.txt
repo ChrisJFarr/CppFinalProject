@@ -7,4 +7,11 @@ set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 
 project(NeuralNetwork)
 
-add_executable(NeuralNetwork src/model.cpp src/model.h src/main.cpp)
+add_executable(NeuralNetwork 
+                src/model.h src/model.cpp 
+                src/layer.h src/layer.cpp       
+                src/matrix.h src/matrix.cpp 
+                src/utils.h src/utils.cpp 
+                src/constants.h
+                src/main.cpp
+                )

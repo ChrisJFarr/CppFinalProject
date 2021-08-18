@@ -8,6 +8,8 @@
 #include <condition_variable>
 #include <thread>
 
+#include "constants.h"
+#include "matrix.h"
 
 
 // Data objects for communicating with message queue
@@ -67,8 +69,8 @@ public:
 
     void save();
     void load();
-    void forward(std::unique_ptr<std::vector<float>> &&inputs);
-    void backward(std::unique_ptr<std::vector<float>> &&targets);
+    void forward(std::unique_ptr<Matrix> &&inputs);
+    void backward(std::unique_ptr<Matrix> &&targets);
     OutputData& getGradients(OutputData&);
     OutputData& getOutputs(OutputData&);
 

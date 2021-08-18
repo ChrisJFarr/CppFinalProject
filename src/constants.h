@@ -4,5 +4,6 @@
 
 const int INPUT_SHAPE = 100;
 
+typedef float MyDType;
 
 #endif
