@@ -22,23 +22,15 @@ DataLoader::DataLoader(string filePath, bool header, int targetPos, float testRa
     _targetPos = targetPos;
     _testRatio = testRatio;
     _validRatio = validRatio;
-    // Reads fileName(train.csv)
-    // Accepts %train, %test, %validation floats
-    // Accepts bool header (skips first row if true)
-    // Internally stores constants for _test, and _valid
     // call analyze() to set _testShape, _validShape
+    analyze();
     // call parse()
     // Print summary
+    cout << "Total Examples: " << _totalSize;
     // total example, train, test, valid example counts
 }
-// This is a dynamic loader
-// It gets the information about the available data, such as n-examples
-// Computes which indices belong to which dataset (indices should be shuffled)
-// Reads and stores subsets on demand, such as for batch-size and maybe a buffer
-// Perhaps for the validation and test it loads the full sets and stores
-// This would, however, require reading from the train file often when training
-// It also may not scale super well when large
-// Another option is to store the train-only data and randomly read from it
+
+
 
 
 // How long would it take to read the last 50 rows? (worst case for batch-size of 50)
@@ -48,30 +40,75 @@ void DataLoader::analyze()
 {
     // this should be called when constructed perhaps
     // open the data source file
+    ifstream file(_filePath);  //, ios::in
     // learn and store the number of examples and the size/shape of each example
+    _totalSize = 0;  // Reset to 0
+    bool firstRow = true;  // Intialize this with true, set to false after first line is parsed
+
+    // string line, dataPoint;
+    string line;
+    // vector<MyDType> row;
+    
+    if(file.is_open())
+    {
+        while(file >> line)
+        {
+            // If header, skip the first line
+            if(_header && firstRow){firstRow=false;continue;};
+            // Increment _totalSize while looping through file
+            _totalSize++;
+            // // Clear the row for this iteration
+            // row.clear();
+            // // Create a stream object
+            // stringstream s(line);
+            // // Populate the row
+            // while (getline(s, dataPoint, ',')) {
+            //     row.push_back(stof(dataPoint));
+            // }
+        }
+    }
     // Set _trainSize based on the number of examples left over after test and valid
     // remember target is at the beginning of the line
     // Set _testSize, _validSize, _trainSize
 }
 
-void DataLoader::parse()
+void DataLoader::load()
 {
-// this should be called after analyze() in the constructor
-// using size variables for trainSize, testSize, and validSize
-// parse the file and write data to _test and _valid
-// write the train to a new file in shuffled order
-// open train to allow loadBatch to work
+    // this should be called after analyze() in the constructor
+    // using size variables for trainSize, testSize, and validSize
+    // parse the file and write data to _test and _valid
+    // write the train to a new file in shuffled order
+    // open train to allow loadBatch to work
 }
 
 // clean()
+//  call this when initializing
 //  scale the data from 0-1
+//  look at all the data to find the max and min values
+//  rescale all the data in-place
 
-// loadTrainBatch(int batchSize)
-// this function randomly samples with replacement
-// read from the open train file the next n==batchSize lines
-// clean
-// read directly into matrix objects...
-// return pointer to 
+// unique_ptr<vector<Matrix>> DataLoader::getTestDataCopy()
+// {
+//     // Create deep copy of test data
+//     // Create a unique_ptr to new vector and return
+// }
+// unique_ptr<vector<Matrix>> DataLoader::getValidDataCopy()
+// {
+//     // Create deep copy of validation data
+//     // Create a unique_ptr to new vector and return
+// }
+// unique_ptr<vector<Matrix>> DataLoader::getTrainBatch(int batchSize)
+// {
+//     // loadTrainBatch(int batchSize)
+//     // this function randomly samples with replacement
+//     // read from the open train file the next n==batchSize lines
+//     // clean
+//     // read directly into matrix objects...
+//     // return pointer to 
+// }
+
+
+
 
 // getTestDataCopy()
 // getValidDataCopy()

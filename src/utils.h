@@ -1,7 +1,11 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <iostream>
+#include <fstream>
+#include <sstream>
 
+#include "constants.h"
 #include "matrix.h"
 
 using namespace std;
@@ -27,6 +31,14 @@ private:
 
 
 class DataLoader
+// This is a dynamic loader
+// It gets the information about the available data, such as n-examples
+// Computes which indices belong to which dataset (indices should be shuffled)
+// Reads and stores subsets on demand, such as for batch-size and maybe a buffer
+// Perhaps for the validation and test it loads the full sets and stores
+// This would, however, require reading from the train file often when training
+// It also may not scale super well when large
+// Another option is to store the train-only data and randomly read from it
 {
 public:
     DataLoader(string filePath, bool header=true, int targetPos=0, float testRatio=0.10, float validRatio=0.10);
@@ -36,17 +48,20 @@ public:
 
 private:
     DataLoader(){};  // No default constructor, must pass fileName
-    void analyze();
-    void parse();
+    void analyze();  // Analyze data, sets sizes, selects
+    void load();  // (prev parse) loop over files once again and add 
     string _filePath;
     bool _header;
     int _targetPos;
-    int _testSize, _validSize, _trainSize;
+    int _totalSize, _trainSize, _testSize, _validSize;
     float _testRatio, _validRatio;
     // Where to store... 
     // store a pointer to a vector of matrix objects
     unique_ptr<vector<Matrix>> _testData;
     unique_ptr<vector<Matrix>> _validData;
+    unique_ptr<vector<Matrix>> _allData;  // Trying to decide how to deal withh this and if its needed
+    // TODO Add file object for train, this maintains an open connection to the data object
+    // Don't forget to close it
 
     // analyze()
     // this should be called when constructed perhaps

@@ -112,7 +112,7 @@ int main() {
     ////////// Testing utils.h ///////////////////
     
     // Initialize DataLoader
-    DataLoader dataLoader("train.csv");
+    DataLoader dataLoader("data/train.csv");
 
     // Print number of train, test, and validation examples
     // Print single example size (from Matrix class rows() cols())
