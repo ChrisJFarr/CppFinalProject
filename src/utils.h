@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 
 #include "constants.h"
 #include "matrix.h"
@@ -42,6 +43,7 @@ class DataLoader
 {
 public:
     DataLoader(string filePath, bool header=true, int targetPos=0, float testRatio=0.10, float validRatio=0.10);
+    ~DataLoader();  // Delete the temp train file for clean up
     unique_ptr<vector<Matrix>> getTestDataCopy();
     unique_ptr<vector<Matrix>> getValidDataCopy();
     unique_ptr<vector<Matrix>> getTrainBatch(int batchSize);
@@ -55,11 +57,13 @@ private:
     int _targetPos;
     int _totalSize, _trainSize, _testSize, _validSize;
     float _testRatio, _validRatio;
-    // Where to store... 
-    // store a pointer to a vector of matrix objects
+    // store a pointer to a vector of matrix objects for data and targets
     unique_ptr<vector<Matrix>> _testData;
     unique_ptr<vector<Matrix>> _validData;
-    unique_ptr<vector<Matrix>> _allData;  // Trying to decide how to deal withh this and if its needed
+
+    unique_ptr<vector<Matrix>> _testTargets;
+    unique_ptr<vector<Matrix>> _validTargets;
+
     // TODO Add file object for train, this maintains an open connection to the data object
     // Don't forget to close it
 

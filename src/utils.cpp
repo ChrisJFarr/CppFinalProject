@@ -1,3 +1,4 @@
+#include <random>
 #include "utils.h"
 
 // class Optimizer
@@ -24,14 +25,19 @@ DataLoader::DataLoader(string filePath, bool header, int targetPos, float testRa
     _validRatio = validRatio;
     // call analyze() to set _testShape, _validShape
     analyze();
-    // call parse()
+    // call load()
+    load();
     // Print summary
     cout << "Total Examples: " << _totalSize;
-    // total example, train, test, valid example counts
+    cout << " Train Examples: " << _trainSize;
+    cout << " Test Examples: " << _testSize;
+    cout << " Validation Examples: " << _validSize << endl;
 }
 
-
-
+DataLoader::~DataLoader()
+{
+    // TODO clean up temporary train file
+}
 
 // How long would it take to read the last 50 rows? (worst case for batch-size of 50)
 
@@ -62,21 +68,105 @@ void DataLoader::analyze()
             // // Create a stream object
             // stringstream s(line);
             // // Populate the row
+            // remember target is at the beginning of the line
             // while (getline(s, dataPoint, ',')) {
             //     row.push_back(stof(dataPoint));
             // }
         }
     }
-    // Set _trainSize based on the number of examples left over after test and valid
-    // remember target is at the beginning of the line
+
     // Set _testSize, _validSize, _trainSize
+    _testSize = static_cast<int>(static_cast<float>(_totalSize) * _testRatio);
+    _validSize = static_cast<int>(static_cast<float>(_totalSize) * _validRatio);
+    // Set _trainSize based on the number of examples left over after test and valid
+    _trainSize = _totalSize - (_testSize + _validSize);
 }
 
 void DataLoader::load()
 {
+    // TODO Start around here: just finished analyze
     // this should be called after analyze() in the constructor
     // using size variables for trainSize, testSize, and validSize
-    // parse the file and write data to _test and _valid
+    // parse the file and write data to _test and _valid, no need to shuffle
+
+    // Decide which indices belong to which part, this should be random
+    // Randomly create testIndices, validIndices, and trainIndices(this one needs to be stored)
+    vector<int> testIndices, validIndices, trainIndices;
+    // Iterate through and randomly assign until sizes are met
+    srand(1987);  // Set seed once, and always the same for reproducibility
+    float myRandomNumber;
+    for(int i=0;i<_totalSize;i++) 
+    {
+        myRandomNumber = static_cast<float>(rand()) / RAND_MAX;
+        if((testIndices.size() < _testSize) && (myRandomNumber < (_testRatio/2.0)))
+        {
+            testIndices.emplace_back(i);
+        } 
+        else if((validIndices.size() < _validSize) && (myRandomNumber < (_validRatio/(1.0-_testRatio))))
+        {
+            validIndices.emplace_back(i);
+        } 
+        else if((trainIndices.size() < _trainSize))
+        {
+            trainIndices.emplace_back(i);
+        }
+    }
+
+    // Debug, print out indices
+    cout << "test: ";
+    for(int i=0; i<20;i++){cout << testIndices[i] << ",";}
+    cout << endl;
+    cout << "valid: ";
+    for(int i=0; i<20;i++){cout << validIndices[i] << ",";}
+    cout << endl;
+    cout << "train: ";
+    for(int i=0; i<20;i++){cout << trainIndices[i] << ",";}
+    cout << endl;
+
+    // iterate through the examples, counting backwards from max index
+    // use an if statement to check which portion it belongs to and move it there
+    // if(i==testIndices[-1]) {move to test, pop last element from testIndices} 
+    // else if(i==validIndices[-1]) {move to valid, pop last element from validIndices}
+    // else continue (skip over train)
+        // open the data source file
+    ifstream file(_filePath);  //, ios::in
+    // learn and store the number of examples and the size/shape of each example
+    bool firstRow = true;  // Intialize this with true, set to false after first line is parsed
+
+    string line, dataPoint;
+    vector<MyDType> row;
+    int rowIndex = 0;
+    
+    if(file.is_open())
+    {
+        while(file >> line)
+        {
+            // Prepare the data structure
+            // Matrix can be initialized with a vector<vector<MyDType>>>
+            vector<vector<MyDType>> newExample;
+            // Add the second dimension for inserting data into
+            newExample.emplace_back(std::vector<float>());
+            // If header, skip the first line
+            if(_header && firstRow){firstRow=false;continue;};
+            // Clear the row for this iteration
+            row.clear();
+            // Create a stream object
+            stringstream s(line);
+            // Populate the row
+            // remember target is at the beginning of the line
+            while (getline(s, dataPoint, ',')) {
+                row.push_back(stof(dataPoint));
+            }
+            // TODO Decide where it needs to go
+            // If test, add to test
+            // If valid, add to valid
+            // If train, write example to a temporary file to batch-load from 
+
+            rowIndex++;
+        }
+    }
+
+
     // write the train to a new file in shuffled order
     // open train to allow loadBatch to work
 }
