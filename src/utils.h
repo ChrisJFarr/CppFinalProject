@@ -57,7 +57,8 @@ private:
     DataLoader(){};  // No default constructor, must pass fileName
     void analyze();  // Analyze data, sets sizes, selects
     void split(); // select and store indices
-    void load();  // (prev parse) loop over files once again and add 
+    void load();  // (prev parse) loop over files once again and add
+    MyDType clean(MyDType); // Project specific preprocessing, a little hacky for this one
     string _filePath;
     string _tempPath = "DataLoader.csv";
     bool _header;

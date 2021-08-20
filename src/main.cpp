@@ -16,95 +16,6 @@ Will need to preprocess the data and store in an easier file type perhaps
     // valgrind --leak-check=yes --track-origins=yes --log-file=valgrind-out.txt ./NeuralNetwork
 */
 
-void functionBlock()
-{
-
-    // TODO Test the usage of all underlying data objects
-    // 1d-vectors
-    std::vector<float> myArray;
-    for(float j=0;j<=10;++j)
-    {
-        std::cout << j << " ";
-        myArray.emplace_back((j/(10.)));
-    }
-    std::cout << std::endl;
-    for(int j=0;j<=10;++j){std::cout << myArray[j] << " " << std::endl;}
-
-    // 1d-vector using unique ptr and heap allocation
-    std::unique_ptr<std::vector<float>> myArrayPtr = std::make_unique<std::vector<float>>();
-    for(float j=0;j<=10;++j)
-    {
-        std::cout << j;
-        (*myArrayPtr).emplace_back((j/(10.)));
-    }
-    std::cout << std::endl;
-    for(int j=0;j<=10;++j){std::cout << (*myArrayPtr)[j] << " " << std::endl;}
-
-    //  2d-vectors vs 2d-arrays
-
-    // Initializing and working with 2d-vector of floats on the stack
-    std::vector<std::vector<float>> my2DArray;
-    for(int j=0;j<10;++j)
-    {
-        my2DArray.emplace_back(std::vector<float>());
-        for(int k=0;k<10;++k)
-        {
-            my2DArray[j].emplace_back(j+k*1.0);
-        }
-    }
-    // 2d vector using unique pointers
-    for(int j=0;j<10;++j){for(int k=0;k<10;++k)
-        {std::cout << " (" << j << "," << k << "): " << my2DArray[j][k] << " ";}std::cout << std::endl;
-    }
-
-    //  unique ptr to 2d vector of floats declared on the heap
-    std::unique_ptr<std::vector<std::vector<float>>> my2DArrayPtr;
-    my2DArrayPtr = std::make_unique<std::vector<std::vector<float>>>();
-
-    for(int j=0;j<10;++j)
-    {
-        (*my2DArrayPtr).emplace_back(std::vector<float>());
-        for(int k=0;k<10;++k)
-        {
-            (*my2DArrayPtr)[j].emplace_back(j+k*1.0);
-        }
-    }
-    // 2d vector using unique pointers
-    for(int j=0;j<10;++j){for(int k=0;k<10;++k)
-        {std::cout << " (" << j << "," << k << "): " << (*my2DArrayPtr)[j][k] << " ";}std::cout << std::endl;
-    }
-
-    //  unique ptr to 2d vector of floats declared on the heap with user-defined size
-    // parameters won't need to be built but once
-    int MAX_SIZE = 10;
-
-    std::unique_ptr<std::vector<std::vector<float>>> my2DArrayPtrDefined;
-    my2DArrayPtrDefined = std::make_unique<std::vector<std::vector<float>>>(MAX_SIZE);
-
-    for(int j=0;j<10;++j)
-    {
-        (*my2DArrayPtrDefined)[j] = std::vector<float>(MAX_SIZE);
-        for(int k=0;k<10;++k)
-        {
-            (*my2DArrayPtrDefined)[j][k] = (j+k*1.0);
-        }
-    }
-    // 2d vector using unique pointers
-    for(int j=0;j<10;++j){for(int k=0;k<10;++k)
-        {std::cout << " (" << j << "," << k << "): " << (*my2DArrayPtr)[j][k] << " ";}std::cout << std::endl;
-    }
-    //  shared ptr on stack, shared ptr on heap
-    //  moving a unique pointer
-    unique_ptr<vector<vector<MyDType>>> my2DArrayPtrDefinedMoved;
-    my2DArrayPtrDefinedMoved = std::move(my2DArrayPtrDefined);
-    // 2d vector using unique pointers
-    for(int j=0;j<10;++j){for(int k=0;k<10;++k)
-        {std::cout << " (" << j << "," << k << "): " << (*my2DArrayPtrDefinedMoved)[j][k] << " ";}std::cout << std::endl;
-    }
-    //  copying a shared pointer
-
-}
-
 // Build this here, then move to utils.cpp
 // This will eventually take a xData Matrix, a yData Matrix, pred Matrix
 void printExample(Matrix xData, Matrix yData)
@@ -113,11 +24,11 @@ void printExample(Matrix xData, Matrix yData)
     for(int j=1;j<xData.cols()+1;j++)
     {
         int imageCols = 28;
-        int dataPoint = xData(0, j-1);  // Call Matrix accessor
+        MyDType dataPoint = xData(0, j-1);  // Call Matrix accessor
         // Decide how to represent the data point
         char pixelRep;
-        if(dataPoint==0){pixelRep = ' ';}
-        else if(dataPoint<50){pixelRep = '\'';}
+        if(dataPoint<.001){pixelRep = ' ';}
+        else if(dataPoint<.2){pixelRep = '\'';}
         else{pixelRep = 'O';}
         cout << pixelRep;  // Print it out
         // If on column 28, end line
@@ -126,40 +37,42 @@ void printExample(Matrix xData, Matrix yData)
     cout << endl << endl << "Target: " << yData(0, 0) << endl << endl;
 }
 
-
-int main() {
-
-
-    ////////// Testing utils.h ///////////////////
+void testUtils()
+{
+        ////////// Testing utils.h ///////////////////
     
     // Initialize DataLoader
-    DataLoader dataLoader("/home/chris/Desktop/final-project/src/data/train.csv", true, 0, 0.10, 0.10, 1000);
+    string fileName;
+    // prompt user for project directory
+    cout << "what's the full path to the data?" << endl;
+    cin >> fileName;
+    // /home/chris/Desktop/final-project/src/data/train.csv
+    // /home/pi/Desktop/CppFinalProject/src/data/train.csv
+    DataLoader dataLoader(fileName, true, 0, 0.10, 0.10, 1000);
 
     // Print number of train, test, and validation examples
     // Print single example size (from Matrix class rows() cols())
 
-    // Print top 5 test examples
+    // Print some test examples
     int nExamples = 1;
-    vector<unique_ptr<vector<Matrix>>> testData;
+    vector<unique_ptr<vector<Matrix>>> testData(0);
     dataLoader.getTestDataCopy(0, nExamples, testData);
-    unique_ptr<vector<Matrix>> xTest = move(testData[0]);
-    unique_ptr<vector<Matrix>> yTest = move(testData[1]);
+    unique_ptr<vector<Matrix>> xTest = move(testData[0]), yTest = move(testData[1]);
     cout << "Test Examples:" << endl;
     for(int i=0;i<nExamples;i++) printExample((*xTest)[i], (*yTest)[i]);
-    // Print top 5 validation examples
-    vector<unique_ptr<vector<Matrix>>> validData;
+
+    // Print some validation examples
+    vector<unique_ptr<vector<Matrix>>> validData(0);
     dataLoader.getValidDataCopy(0, nExamples, validData);
-    unique_ptr<vector<Matrix>> xValid = move(validData[0]);
-    unique_ptr<vector<Matrix>> yValid = move(validData[1]);
+    unique_ptr<vector<Matrix>> xValid = move(validData[0]), yValid = move(validData[1]);
     cout << "Validation Examples:" << endl;
     for(int i=0;i<nExamples;i++) printExample((*xValid)[i], (*yValid)[i]);
-    // Print top 5 train examples of a single batch
-    vector<unique_ptr<vector<Matrix>>> trainData;
+
+    // Print some train examples of a single batch
+    vector<unique_ptr<vector<Matrix>>> trainData(0);
     dataLoader.getTrainBatch(nExamples, trainData);
-    unique_ptr<vector<Matrix>> xTrain = move(trainData[0]);
-    unique_ptr<vector<Matrix>> yTrain = move(trainData[1]);
+    unique_ptr<vector<Matrix>> xTrain = move(trainData[0]), yTrain = move(trainData[1]);
     cout << "Train Examples:" << endl;
-    cout << xTrain->size() << endl;
     for(int i=0;i<nExamples;i++) printExample((*xTrain)[i], (*yTrain)[i]);
     
     // Print the target distribution of a train batch
@@ -167,11 +80,41 @@ int main() {
     // Print the target distribution of validation set
 
     //////// END OF TESTING utils.h //////////////
+}
+
+
+int main() {
+
+
+    ////////// Testing utils.h ///////////////////
+    testUtils();
+    //////// END OF TESTING utils.h //////////////
+
+    ////////// Testing layer.h ///////////////////
+    
+    // Create test input data that's similar to image inputs (but small)
+    vector<vector<MyDType>> data({{0.0, 0.0, 0.5, 0.5, 0.0}});
+    Matrix xData(data);
+
+    // Test input layer
+    // Initialize input layer using size
+
+
+
+    //////// END OF TESTING layer.h //////////////
+
 
     // TODO PLan where to go next...
-    // I have data, but still need to scale it
+    // I have data and ready to use it
     // Need to build the model now
-    // It should be able to generate a prediction (with random initialization)
+    // Step 1: It should be able to generate a prediction (with random initialization)
+
+    // Intialize model
+    // 
+
+
+
+
     // Test generating a prediction
     // Test extracting the parameters
     // Test extracting the parameter gradients

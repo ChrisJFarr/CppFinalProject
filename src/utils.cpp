@@ -51,6 +51,7 @@ void DataLoader::analyze()
 {
     // this should be called when constructed perhaps
     // open the data source file
+    if(DEBUG) cout << "attempting to read file at " << _filePath << endl;
     ifstream file(_filePath);
     // learn and store the number of examples and the size/shape of each example
     _totalSize = 0;  // Reset to 0
@@ -68,11 +69,13 @@ void DataLoader::analyze()
             if(_totalSize>=_maxExamples) break;
         }
     }
+    if(DEBUG) cout << "found " << _totalSize << " records" << endl;
     // Set _testSize, _validSize, _trainSize
     _testSize = static_cast<int>(static_cast<float>(_totalSize) * _testRatio);
     _validSize = static_cast<int>(static_cast<float>(_totalSize) * _validRatio);
     // Set _trainSize based on the number of examples left over after test and valid
     _trainSize = _totalSize - (_testSize + _validSize);
+    if(DEBUG) cout << "exiting DataLoader::analyze() " << endl;
 }
 
 
@@ -174,7 +177,7 @@ void DataLoader::load()
             getline(s, dataPoint, ',');
             yRow.emplace_back(stof(dataPoint));
             while (getline(s, dataPoint, ',')) {
-                xRow.emplace_back(stof(dataPoint));
+                xRow.emplace_back(clean(stof(dataPoint)));
             }
             // Insert rows into data objects
             xData.emplace_back(xRow);
@@ -211,7 +214,12 @@ void DataLoader::load()
     }
 }
 
-// clean()
+MyDType DataLoader::clean(MyDType dataPoint)
+{
+    // cout << "Before: " << dataPoint << " After: " << (dataPoint/255.) << endl;
+    return dataPoint / 255.;
+}
+// For a more reusable clean...
 //  call this when initializing
 //  scale the data from 0-1
 //  look at all the data to find the max and min values
@@ -307,7 +315,7 @@ void DataLoader::getTrainBatch(int batchSize, vector<unique_ptr<vector<Matrix>>>
             getline(s, dataPoint, ',');
             yRow.emplace_back(stof(dataPoint));
             while (getline(s, dataPoint, ',')) {
-                xRow.emplace_back(stof(dataPoint));
+                xRow.emplace_back(clean(stof(dataPoint)));
             }
             // Insert rows into data objects
             xData.emplace_back(xRow);

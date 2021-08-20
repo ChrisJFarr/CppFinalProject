@@ -7,6 +7,7 @@
 #include <deque>
 #include <condition_variable>
 #include <thread>
+#include <iostream>
 
 #include "constants.h"
 #include "matrix.h"
