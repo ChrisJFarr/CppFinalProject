@@ -19,6 +19,7 @@ public:
     Matrix& operator=(Matrix&&);  // Move assignment operator
     Matrix& operator=(Matrix&);  // Deep-copy assignment operator
     float operator()(int row, int col);  // Access individual elements
+    vector<MyDType>& operator[](std::size_t n);  // Trying to use this for assingments
     Matrix mathMultiply(Matrix&);
     Matrix operator*(Matrix&);
     Matrix operator+(Matrix&);

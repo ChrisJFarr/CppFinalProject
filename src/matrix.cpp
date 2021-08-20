@@ -74,7 +74,9 @@ Matrix::Matrix(int rows, int cols)
     // Store shape
     _rows = rows;
     _cols = cols;
-    // This should allocate memory on the heap
+    // This allocates memory on the heap and initializes the data to zeros
+    _data = make_unique<vector<vector<MyDType>>>(_rows);
+    for(auto& row: (*_data)) row.resize(_cols);
 } 
 
 Matrix& Matrix::operator=(Matrix&& other)
@@ -107,15 +109,42 @@ Matrix& Matrix::operator=(Matrix&)
 float Matrix::operator()(int row, int col)
 {
     // Access individual elements
+    // Validate in bounds
+    // cout << "_rows:" << _rows << " row:" << row << " _cols:" << _cols << " col:" << col << endl;
+    if((row >= _rows) || (col >= _cols)) throw invalid_argument("Attempting to access outside Matrix bounds.");
     return (*_data)[row][col];
-}  
+}
+
+vector<MyDType>& Matrix::operator[](std::size_t n)
+{
+    return (*_data)[n];
+}
+
 Matrix Matrix::mathMultiply(Matrix& other)
 {
     return *this;
 }
 Matrix Matrix::operator*(Matrix& other)
 {
-    return *this;
+    // Validate that the other matrix and this matrix are compatible
+    // implies the order this * other
+    // this.columns must equal other rows
+    if(this->cols() != other.rows()) throw invalid_argument("Matrix A.cols must equal B.rows in Matrix::operator*");
+    Matrix targetMatrix(this->rows(), other.cols());
+    
+    // for(int j=0;j<targetMatrix)
+    for(int j=0;j<targetMatrix.rows();j++)
+    {
+        for(int k=0;k<targetMatrix.cols();k++)
+        {
+            for(int i=0;i<other.rows();i++)
+            {
+                targetMatrix[j][k] += (*this)(j, i) * other(i, k);
+            }
+        }
+    }
+    
+    return targetMatrix;
 }
 Matrix Matrix::operator+(Matrix& other)
 {

@@ -19,13 +19,13 @@ public:
     BaseLayer(BaseLayer&);  // Copy constructor
     ~BaseLayer();
 
-    // Public methods
-    void connectParent(BaseLayer&);  // Must be called in order across full model graph
+    // Public methods to be used by inheriting layers
+    void _connectParent(BaseLayer&);  // Must be called in order across full model graph
     // Forward and backward must be called by the child layer
-    void moveOutputs(unique_ptr<Matrix>&& outputs);  // Move layer outputs to child inputs in forward pass
-    void moveGradients(unique_ptr<Matrix>&& gradients);  // Move gradients to parent in backward pass
+    void _sendOutputs(shared_ptr<Matrix>);  // Move layer outputs to child inputs in forward pass
+    void _sendGradients(shared_ptr<Matrix>);  // Move gradients to parent in backward pass
     // Setters and getters
-    void setInputShape(vector<int> shape) {for(auto d: shape){_inputShape.emplace_back(d);}};
+    void _setInputShape(vector<int> shape) {for(auto d: shape){_inputShape.emplace_back(d);}};
     vector<int> getInputShape(){return _inputShape;};
     const Matrix& getInputs(); // {if(_inputs != nullptr) return (*_inputs);};  // Is this correct, pass by reference? Can't change them but can read them
     const Matrix& getGradients(); // {if(_gradients != nullptr) return (*_gradients);};
@@ -39,13 +39,14 @@ public:
     virtual vector<int> computeOutputShape() = 0; // Compute output shape for child layer to consume with setInputShape
 
     // Attributes
-    BaseLayer* _parentLayer;  // Pointer is not owned or managed by layers
-    BaseLayer* _childLayer;  // Pointer is not owned or managed by layers
+    vector<BaseLayer*> _parentLayers;  // Pointer is not owned or managed by layers
+    vector<BaseLayer*> _childLayers;  // Pointer is not owned or managed by layers
     bool hasParams(){return false;} // Returns false unless overriden
+    shared_ptr<Matrix> _inputs;  // These come from the parent except for InputLayer
+    shared_ptr<Matrix> _gradients;  // These come from the child and are set by moveGradients (grad wrt inputs)
 
 private:
-    unique_ptr<Matrix> _inputs;  // These come from the parent except for InputLayer
-    unique_ptr<Matrix> _gradients;  // These come from the child and are set by moveGradients (grad wrt inputs)
+    // These must be shared pointers to allow 1-to-many connections between child and parent
     vector<int> _inputShape;
     // _inputs and _gradients are always the same size
     //   inputs
@@ -58,15 +59,17 @@ private:
 class InputLayer: public BaseLayer
 {
 public:
-    InputLayer(int);  // Only allows for one dimension
-    void setInputs(unique_ptr<Matrix> inputs);  // Input layer has a different interface
+    InputLayer(int, int);
+    void setInputs(unique_ptr<Matrix>&& inputs);  // Input layer has a different interface
     vector<int> computeOutputShape();
     void forward();  // Validate input shape, pass inputs to child layer
-    
 private:
+    // Uneeded abstract methods
     InputLayer(){};  // No default constructor
     void backward(){};  // InputLayer has no backward pass
-    unique_ptr<Matrix> _inputs;
+    // This layer has no params
+    void setParams(){};  
+    vector<shared_ptr<Matrix>> getParams(){return vector<shared_ptr<Matrix>>();};
 };
 
 
@@ -77,7 +80,6 @@ public:
     DenseLayer(DenseLayer&);
     vector<int> computeOutputShape();
     void build();  // compute output shape, initialize
-    bool built = false;
     bool hasParams(){return true;}
     unique_ptr<vector<Matrix>>&& extractGradients();
     // TODO parameters, protected with mutex, wait to update weights until backward pass is done
@@ -85,13 +87,15 @@ public:
     // getGradients (get an rvalue unique_ptr<vector<unique_ptr<Matrix>>> to gradients declared on heap)
     void forward();
     void backward();
-private:
-    DenseLayer();  // Must initialize with units
+    // Public attributes
     int _units;
     float _reg;
+    bool _built;  // Set to true after parameters are initialized (or loaded)
+    bool _gradientsAvailable;  // Track when gradients are available to extract
+private:
+    DenseLayer();  // Must initialize with units, hiding default initializer
     // Must implement and manage _params and _paramGrads
     unique_ptr<vector<Matrix>> _parameterGradients;
-    bool _gradientsAvailable;  // Track when gradients are available to extract
     // The _params are shared across all copies, this is manged entirely by the class
     shared_ptr<vector<Matrix>> _parameterVector;  // Vector of parameters of the layer
 };

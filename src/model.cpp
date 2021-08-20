@@ -4,17 +4,17 @@
 
 BaseModel::BaseModel()
 {
-    std::cout << "BaseModel::constructor" << std::endl;
+    if(DEBUG) std::cout << "BaseModel::constructor" << std::endl;
 };
 BaseModel::BaseModel(BaseModel& other)
 {
-    std::cout << "BaseModel::copy-constructor" << std::endl;
+    if(DEBUG) std::cout << "BaseModel::copy-constructor" << std::endl;
     // copy constructor (copies are used in the thread functions)
     // loop over and copy the modelVector to the new object
 };
 BaseModel::~BaseModel()
 {
-    std::cout << "BaseModel::destructor" << std::endl;
+    if(DEBUG) std::cout << "BaseModel::destructor" << std::endl;
     // Loop through and join the threads, need to stop them somehow...?
     // set up thread barrier before this object is destroyed
     // std::for_each(threads.begin(), threads.end(), [](std::thread &t) {
@@ -133,7 +133,7 @@ OutputData& BaseModel::getOutputs(OutputData& outputData)
 
 MyModel::MyModel(): BaseModel()
 {
-    std::cout << "MyModel::constructor" << std::endl;
+    if(DEBUG) std::cout << "MyModel::constructor" << std::endl;
     // call MyModel::modelInstructions to populate the modelVector and paramVector
     // call BaseModel::constructor
 }

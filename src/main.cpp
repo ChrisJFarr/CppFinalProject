@@ -4,16 +4,15 @@
 #include <memory>
 #include "model.h"
 #include "utils.h"
+#include "layer.h"
 
 using namespace std;
 
 /*
-Working with the data
+valgrind --leak-check=yes --track-origins=yes --log-file=valgrind-out.txt ./NeuralNetwork
 
-Will need to preprocess the data and store in an easier file type perhaps
-
-
-    // valgrind --leak-check=yes --track-origins=yes --log-file=valgrind-out.txt ./NeuralNetwork
+/home/chris/Desktop/final-project/src/data/train.csv
+/home/pi/Desktop/CppFinalProject/src/data/train.csv
 */
 
 // Build this here, then move to utils.cpp
@@ -82,27 +81,151 @@ void testUtils()
     //////// END OF TESTING utils.h //////////////
 }
 
+void testLayer()
+{
+        ////////// Testing layer.h ///////////////////
+    
+    // Create test input data that's similar to image inputs (but small)
+    vector<vector<MyDType>> data({{0.0, 0.0, 0.5, 0.5, 0.0}});
+    unique_ptr<Matrix> xData = make_unique<Matrix>(data);
+
+    // Test input layer
+
+    // Initialize input layer using shape of input data
+    InputLayer inputLayer(xData->rows(), xData->cols());
+    // Test that input shapes == expected shapes
+    vector<string> testInputLayerInputSize(2);
+    testInputLayerInputSize[0] = (inputLayer.getInputShape()[0] == xData->rows()) ? "success" : "fail";
+    testInputLayerInputSize[1] = (inputLayer.getInputShape()[1] == xData->cols()) ? "success" : "fail";
+    for(string r: testInputLayerInputSize) {cout << "testing InputLayer::getInputShape... " << r << endl;}
+    // Test expected output shape
+    vector<string> testInputLayerOutputSize(2);
+    testInputLayerOutputSize[0] = (inputLayer.computeOutputShape()[0] == xData->rows()) ? "success" : "fail";;
+    testInputLayerOutputSize[1] = (inputLayer.computeOutputShape()[1] == xData->cols()) ? "success" : "fail";;
+    for(string r: testInputLayerOutputSize) {cout << "testing InputLayer::computeOutputShape... " << r << endl;}
+    // Test InputLayer::setInputs (this invalidates xData, must be reinitialized after moving out)
+    cout << "testing InputLayer::setInputs... ";
+    inputLayer.setInputs(move(xData));
+    cout << "success" << endl;
+    // Test InputLayer::foward() prior to and after connecting to child
+    cout << "testing InputLayer::forward... ";
+    try {inputLayer.forward();} catch(logic_error) {cout << "success" << endl;}
+    // Connect to another layer then try forward again
+
+    // Test actual output shape
+
+    // Use try catch and print "success" after testing
+
+    // TODO Consider implementing dropout, seems like it wouldn't be too hard to do
+    //  just create a parameter that can be consumed by the child that tells it which
+    //  inputs to ignore (this could also serve as a way to implement a mask operation)
+    //  it only works when just before a parameterized layer unless a universal masking
+    //  approach is taking? Think on it.
+    //////// END OF TESTING layer.h //////////////
+}
 
 int main() {
 
 
     ////////// Testing utils.h ///////////////////
-    testUtils();
+    // testUtils();
     //////// END OF TESTING utils.h //////////////
 
     ////////// Testing layer.h ///////////////////
-    
-    // Create test input data that's similar to image inputs (but small)
-    vector<vector<MyDType>> data({{0.0, 0.0, 0.5, 0.5, 0.0}});
-    Matrix xData(data);
-
-    // Test input layer
-    // Initialize input layer using size
-
-
-
+    // testLayer();
     //////// END OF TESTING layer.h //////////////
 
+
+    ////////// Testing matrix.h ///////////////////
+    {
+    // Test setting values with [] accessor operator
+    Matrix myMatrix1(5, 5), myMatrix2(1, 5), myMatrix3(5, 1);
+    cout << "visual inspection for Matrix::operator[]... do these match?" << endl;
+    for(int j=0;j<5;j++)
+    {
+        for(int k=0;k<5;k++)
+        {
+            myMatrix1[j][k] = j+k;
+            cout << j+k;
+        }
+        cout << " ";
+        for(int k=0;k<5;k++)
+        {
+            cout << myMatrix1[j][k];
+        }
+        cout << endl;
+    }
+    cout << endl;
+    vector<int> check;
+    }
+    {
+        Matrix myMatrix1(5, 5), myMatrix2(1, 5), myMatrix3(5, 1);
+        // Test that Matrix(rows,cols) constructor initializes to all zeros
+        cout << "testing Matrix(rows,cols) initializing to 0... ";
+        vector<bool> testingZeroInitialization;
+        for(MyDType d: myMatrix1[0]) testingZeroInitialization.emplace_back(d==0);  // Will this work or do I need a threshold?
+        bool zeroInitializationResult = std::all_of(testingZeroInitialization.begin(), testingZeroInitialization.end(), [](bool v) { return v; });
+        string zeroInitializationResultStr = (zeroInitializationResult) ? "success" : "fail";
+        cout << zeroInitializationResultStr << endl; 
+    }
+    {
+        // Test matrixmul operator*
+        Matrix myMatrix1(5, 5), myMatrix2(1, 5), myMatrix3(5, 1);
+        // Try 5x5 * 5x1 (expecting 5x1 result)
+        Matrix newMatrix = myMatrix1 * myMatrix3;
+        cout << "testing Matrix*Matrix output shape...";
+        string matrixMultShapeTest = ((newMatrix.rows()==5) && (newMatrix.cols()==1)) ? "success" : "fail";
+        cout << matrixMultShapeTest << endl;
+
+        // Test numerical results of 1x2 * 2x3 (expecting 1x3 result)
+        Matrix myMatrix4(1, 2); // Similar to an input vector of a dense layer with 2 features
+        Matrix myMatrix5(2, 3);  // Similar to a weights matrix of a dense layer with 3 nodes
+        // Just set values (i know its wonky)
+        for(int j=0;j<2;j++)
+        {
+            // cout << "looping" << endl;
+            myMatrix4[0][j] = .1;
+            for(int k=0;k<3;k++)
+            {
+                myMatrix5[j][k] = .1 * k;
+            }
+        }
+        cout << "testing Matrix*Matrix output values... ";
+        Matrix newMatrix2 = myMatrix4 * myMatrix5;
+        // For debugging, print the values
+        // for(int j=0;j<newMatrix2.rows();j++)
+        // {
+        //     for(int k=0;k<newMatrix2.cols();k++)
+        //     {
+        //         cout << newMatrix2(j,k);
+        //     }
+        //     cout << endl;
+        // }
+        // Expected results of myMatrix4 * myMatrix5
+        /*
+            myMatrix4 {{.1, .1}} myMatrix5{{0., .1, .2}, {0., .1, .2}}
+            newMatrix2 {{0.0, .02, .04}}
+        */
+       vector<MyDType> expected({0.0, 0.02, 0.04});
+       vector<bool> matrixMultValueTest;
+        for(int i=0;i<newMatrix2.cols();i++)
+        {
+            matrixMultValueTest.emplace_back(abs(newMatrix2(0, i)-expected[i])<.001);
+        }
+        string matrixMultValueResult = (std::all_of(matrixMultValueTest.begin(), matrixMultValueTest.end(), [](bool v) { return v; }) ? "success" : "fail");
+        cout << matrixMultValueResult << endl;
+
+    }
+    {
+        // Test adding 2 Matrix
+    }
+    
+    // Test multiplying 2 Matrix mathMultiply (element-wise and must be exact same shape)
+
+
+    //////// END OF TESTING matrix.h //////////////
+
+    
 
     // TODO PLan where to go next...
     // I have data and ready to use it
@@ -123,7 +246,7 @@ int main() {
 
     /////////// Testing model.h ///////////////////
 
-    MyModel model;
+    // MyModel model;
 
     // std::cout << "Model declared at:" << &model << "\n";
     // MyModel newModel(model);

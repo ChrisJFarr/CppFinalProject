@@ -4,9 +4,21 @@
 
 BaseLayer::BaseLayer()
 {
-    std::cout << "BaseLayer::constructor" << std::endl;
-    _inputs = nullptr;
+    if(DEBUG) std::cout << "BaseLayer::constructor" << std::endl;
+    // _inputs = nullptr; Not needed since these are smart pointers
+    // _gradients = nullptr;
     // Constructor
+    // Initialize the child and parent pointers (these go unused if not needed by inheriting layer)
+    _parentLayers = vector<BaseLayer*>();
+    _childLayers = vector<BaseLayer*>();
+}
+
+BaseLayer::~BaseLayer()
+{
+    // TODO?
+    // Drop the connections
+    _parentLayers.clear();
+    _childLayers.clear();
 }
 
 BaseLayer::BaseLayer(BaseLayer& other)
@@ -14,83 +26,112 @@ BaseLayer::BaseLayer(BaseLayer& other)
     std::cout << "BaseLayer::copy-constructor" << std::endl;
     // This is called when copying the modelVector and should be done for threads only
     // No copying of the inputs/outputs, just need to declare a unique ptr without allocation for the inputs?
-    // Copy the shared pointers of parameters to the new object
-    // layer parameters are owned by the layer, copies of the parameters and grads are shared pointer
-    // clear relationships after copying, the copies must be reconnected by the model class
+    // Copy the shared pointers of parameters to the new object in the inheriting class if necessary
+    // layer parameters are owned by the layer, copies of the parameters are a shared pointer
+    // Initialize parent and child vectors
+    _parentLayers = vector<BaseLayer*>();
+    _childLayers = vector<BaseLayer*>();
 }
 
-void BaseLayer::connectParent(BaseLayer& parent)
+void BaseLayer::_connectParent(BaseLayer& parent)
 {
     // connectParent (the child is called and passed the parent)
     // parent.childLayer = this
     // this.parentLayer = parent
 }
 
-void BaseLayer::moveOutputs(unique_ptr<Matrix>&& outputs)
+void BaseLayer::_sendOutputs(shared_ptr<Matrix> outputs)
 {
     // called on the forward pass by the parent layer
     // accepts a pointer rvalue argument
     // moves the unique pointer to outputs to the child layer
+    for(int i=0;i<_childLayers.size();i++)
+    {
+        // Copy the shared pointer to each child
+        _childLayers[i]->_inputs = outputs;
+    }
 }
 
-void BaseLayer::moveGradients(unique_ptr<Matrix>&& gradients)
+void BaseLayer::_sendGradients(shared_ptr<Matrix> gradients)
 {
     // called on the backward pass by the child layer
     // accepts a pointer rvalue argument
     // moves the unique pointer to gradients-wrt-inputs to the parent layer
+    for(int i=0;i<_parentLayers.size();i++)
+    {
+        // Copy the shared pointer to each child
+        _parentLayers[i]->_gradients = gradients;
+    }
 }
 
 
-InputLayer::InputLayer(int inputSize)
+InputLayer::InputLayer(int rows, int cols)
 {
     // Constructor
+    vector<int> inputShape({rows, cols});
+    BaseLayer::_setInputShape(inputShape);
 }
 
-void InputLayer::setInputs(unique_ptr<Matrix> inputs)
+void InputLayer::setInputs(unique_ptr<Matrix>&& inputs)
 {
     // Input size must be passed along when connecting the graph to allow child layers to create
     // parameters.
+    // Validate inputs shape (if passing all local tests, the only test needed should be here for new inputs.)
+    bool dim1Test, dim2Test;
+    dim1Test = (*inputs).rows() == getInputShape()[0];
+    dim2Test = (*inputs).cols() == getInputShape()[1];
+    if(!(dim1Test && dim2Test)) throw logic_error(
+        "Passing wrong shape inputs to InputLayer.");
+    _inputs = move(inputs);  // Move from a unique ptr to a shared one in the input layer only
 }
 
 vector<int> InputLayer::computeOutputShape()
 {
     // Implement this specific to the layer
     // Move and return the resulting vector
-    return vector<int>();
+    // This layer has the same input and output shape
+    vector<int> outputs = getInputShape();
+    // Do I need to move this out?
+    return outputs;
 }
 
 void InputLayer::forward()
 {
-    // Validate input shape, pass inputs to child layer
+    // First validate that the layer is connected to a child layer
+    if(_childLayers.size()==0) throw logic_error(
+        "Calling forward on a disconnected graph. \n Error in InputLayer::forward()");
+    // Pass inputs to child layers as outputs
+    BaseLayer::_sendOutputs(_inputs);
 }
 
-
-
-// class Dense: public BaseLayer
 
 DenseLayer::DenseLayer(int units, float reg)
 {
     // constructor
-    // set units
-    // Intialize _gradientsAvailable
-    // regularization controlled by hyperparam
+    // set attributes
+    _units = units;
+    _reg = reg;  // regularization controlled by hyperparam
+    _gradientsAvailable = false;
+    _built = false;
 }
 
 vector<int> DenseLayer::computeOutputShape()
 {
     // compute output shape 
     // uses input shape from parent and units
-    return vector<int>();
+    // the operations are... matrix-multiply wx + b
+    return vector<int>({});
 }
 
 void DenseLayer::build()
 {
+    // Validate that only one parent connection exists
     // create array of size of output shape on the heap use shared pointer handle
     // vector<shared_ptr<paramdatatype[]>>_params; owned by layer
     // create array for weights, add pointer to array to _params vector
     // create array for bias, add pointer to _params vector
     // randomly initialize bias and weights
-    built = true;
+    _built = true;  // After complete, set _built to true
 }
 
 unique_ptr<vector<Matrix>>&& DenseLayer::extractGradients()
