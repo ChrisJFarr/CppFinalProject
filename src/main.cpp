@@ -133,38 +133,54 @@ int main() {
     ////////// Testing utils.h ///////////////////
     
     // Initialize DataLoader
-    DataLoader dataLoader("/home/chris/Desktop/final-project/src/data/train.csv");
+    DataLoader dataLoader("/home/chris/Desktop/final-project/src/data/train.csv", true, 0, 0.10, 0.10, 1000);
 
     // Print number of train, test, and validation examples
     // Print single example size (from Matrix class rows() cols())
 
     // Print top 5 test examples
-    int nExamples = 5;
+    int nExamples = 1;
     vector<unique_ptr<vector<Matrix>>> testData;
     dataLoader.getTestDataCopy(0, nExamples, testData);
     unique_ptr<vector<Matrix>> xTest = move(testData[0]);
     unique_ptr<vector<Matrix>> yTest = move(testData[1]);
+    cout << "Test Examples:" << endl;
     for(int i=0;i<nExamples;i++) printExample((*xTest)[i], (*yTest)[i]);
     // Print top 5 validation examples
     vector<unique_ptr<vector<Matrix>>> validData;
     dataLoader.getValidDataCopy(0, nExamples, validData);
     unique_ptr<vector<Matrix>> xValid = move(validData[0]);
     unique_ptr<vector<Matrix>> yValid = move(validData[1]);
+    cout << "Validation Examples:" << endl;
     for(int i=0;i<nExamples;i++) printExample((*xValid)[i], (*yValid)[i]);
     // Print top 5 train examples of a single batch
-
-
-    // Consider taking a batch approach to the test and validation data for memory efficiency (how much memory does it take up?)
+    vector<unique_ptr<vector<Matrix>>> trainData;
+    dataLoader.getTrainBatch(nExamples, trainData);
+    unique_ptr<vector<Matrix>> xTrain = move(trainData[0]);
+    unique_ptr<vector<Matrix>> yTrain = move(trainData[1]);
+    cout << "Train Examples:" << endl;
+    cout << xTrain->size() << endl;
+    for(int i=0;i<nExamples;i++) printExample((*xTrain)[i], (*yTrain)[i]);
+    
     // Print the target distribution of a train batch
     // Print the target distribution of test set
     // Print the target distribution of validation set
 
     //////// END OF TESTING utils.h //////////////
 
+    // TODO PLan where to go next...
+    // I have data, but still need to scale it
+    // Need to build the model now
+    // It should be able to generate a prediction (with random initialization)
+    // Test generating a prediction
+    // Test extracting the parameters
+    // Test extracting the parameter gradients
+    // Test extracting the layer-gradients
+    // Implement a print-model-summary
 
     /////////// Testing model.h ///////////////////
 
-    // MyModel model;
+    MyModel model;
 
     // std::cout << "Model declared at:" << &model << "\n";
     // MyModel newModel(model);

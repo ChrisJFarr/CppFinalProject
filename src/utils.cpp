@@ -15,7 +15,7 @@
 //   updates the parameters
 //   releases the lock
 
-DataLoader::DataLoader(string filePath, bool header, int targetPos, float testRatio, float validRatio)
+DataLoader::DataLoader(string filePath, bool header, int targetPos, float testRatio, float validRatio, int maxExamples)
 {
     // Set values
     _filePath = filePath;
@@ -23,6 +23,7 @@ DataLoader::DataLoader(string filePath, bool header, int targetPos, float testRa
     _targetPos = targetPos;
     _testRatio = testRatio;
     _validRatio = validRatio;
+    _maxExamples = maxExamples;
     // call analyze() to set _testShape, _validShape
     // Initialize the test and validation pointers
     _testData = make_unique<vector<Matrix>>();
@@ -46,22 +47,16 @@ DataLoader::~DataLoader()
     remove(static_cast<const char*>(removePath));
 }
 
-// How long would it take to read the last 50 rows? (worst case for batch-size of 50)
-
-// analyze()
 void DataLoader::analyze()
 {
     // this should be called when constructed perhaps
     // open the data source file
-    ifstream file(_filePath);  //, ios::in
+    ifstream file(_filePath);
     // learn and store the number of examples and the size/shape of each example
     _totalSize = 0;  // Reset to 0
     bool firstRow = true;  // Intialize this with true, set to false after first line is parsed
-
-    // string line, dataPoint;
     string line;
-    // vector<MyDType> row;
-    
+
     if(file.is_open())
     {
         while(file >> line)
@@ -70,18 +65,9 @@ void DataLoader::analyze()
             if(_header && firstRow){firstRow=false;continue;};
             // Increment _totalSize while looping through file
             _totalSize++;
-            // // Clear the row for this iteration
-            // row.clear();
-            // // Create a stream object
-            // stringstream s(line);
-            // // Populate the row
-            // remember target is at the beginning of the line
-            // while (getline(s, dataPoint, ',')) {
-            //     row.push_back(stof(dataPoint));
-            // }
+            if(_totalSize>=_maxExamples) break;
         }
     }
-
     // Set _testSize, _validSize, _trainSize
     _testSize = static_cast<int>(static_cast<float>(_totalSize) * _testRatio);
     _validSize = static_cast<int>(static_cast<float>(_totalSize) * _validRatio);
@@ -155,7 +141,6 @@ void DataLoader::load()
     ofstream tempFile(_tempPath);  // write train examples here
     // learn and store the number of examples and the size/shape of each example
     bool firstRow = true;  // Intialize this with true, set to false after first line is parsed
-
     string line, dataPoint;
     int rowIndex = (_totalSize - 1);  // Start with the max index (since index vectors are sorted ascending)
     
@@ -165,12 +150,7 @@ void DataLoader::load()
         {
             // If header, skip the first line
             if(_header && firstRow){firstRow=false;continue;};
-            // Debug
-            // cout << "rowIndex: " << rowIndex << endl;
-            // cout << "test: " << _testIndices.back() << endl;
-            // cout << "valid: " << _validIndices.back() << endl;
-            // cout << "train: " << _trainIndices.back() << endl;
-
+            if(rowIndex<0) break;  // THis occurs when _maxExamples > available examples
             // First determine if this is a train example
             if((_trainIndices.size() > 0) && (rowIndex == _trainIndices.back()))
             {
@@ -199,10 +179,6 @@ void DataLoader::load()
             // Insert rows into data objects
             xData.emplace_back(xRow);
             yData.emplace_back(yRow);
-            // Create Matrix objects for storage
-            // unique_ptr<Matrix> xMatrixPtr = make_unique<Matrix>(xData);
-            // unique_ptr<Matrix> yMatrixPtr = make_unique<Matrix>(yData);
-
             // Decide where it needs to go
             // If test, add to test
             if((_testIndices.size() > 0) && (rowIndex == _testIndices.back()))
@@ -210,7 +186,6 @@ void DataLoader::load()
                 // cout << "adding test data" << endl;
                 // Add to test
                 _testData->emplace_back(Matrix(xData));
-                // cout << "finished adding new matrix to _testData" << endl;
                 _testTargets->emplace_back(Matrix(yData));
 
                 // Pop last index on test
@@ -234,10 +209,6 @@ void DataLoader::load()
             }
         }
     }
-
-
-    // write the train to a new file in shuffled order
-    // open train to allow loadBatch to work
 }
 
 // clean()
@@ -279,30 +250,82 @@ void DataLoader::getValidDataCopy(int startingIndex, int batchSize, vector<uniqu
     dataVector.emplace_back(move(xOut));
     dataVector.emplace_back(move(yOut));
 }
-// unique_ptr<vector<Matrix>> DataLoader::getValidDataCopy(int startingIndex, int batchSize)
-// {
-//     // Create deep copy of validation data
-//     // Create a unique_ptr to new vector and return
-// }
-// unique_ptr<vector<Matrix>> DataLoader::getTrainBatch(int batchSize)
-// {
-//     // loadTrainBatch(int batchSize)
-//     // this function randomly samples with replacement (underlying data is not shuffled)
-//     // read from the open train file the next n==batchSize lines
-//     // clean
-//     // read directly into matrix objects...
-//     // return pointer to 
-// }
+
+void DataLoader::getTrainBatch(int batchSize, vector<unique_ptr<vector<Matrix>>>& dataVector)
+{
+    // this function randomly samples with replacement (underlying data is not shuffled)
+    // loadTrainBatch(int batchSize)
+    // cout << "DataLoader::getTrainBatch" << endl;
+    
+    // Select n=batchSize random indices from 0-_trainSize
+    vector<int> indices;
+    srand(time(0));
+    for(int i=0;i<batchSize;i++)
+    {
+        float myRandomNumber = static_cast<float>(rand()) / RAND_MAX;
+        int myRandomIndex = static_cast<int>(myRandomNumber * _trainSize);  // Truncate to nearest int
+        indices.push_back(myRandomIndex);
+    }
+    // cout << "sorting indices" << endl;
+    // Sort the indices in ascending order
+    sort(indices.begin(), indices.end());
+    // Prep intermediate vector for storing data as its read
+    unique_ptr<vector<Matrix>> xOut = make_unique<vector<Matrix>>();
+    unique_ptr<vector<Matrix>> yOut = make_unique<vector<Matrix>>();
+
+    // Open file and get the data
+    ifstream file(_tempPath);
+    string line, dataPoint;
+    int rowIndex = (_trainSize - 1);  // Track the index
+    // Search for indices and add data to outputs
+    // Loop while indices is not empty and file is open
+    // cout << "getting ready to loop" << endl;
+    if(file.is_open())
+    {
+        while((indices.size() > 0) && (file >> line))
+        {
+            if(rowIndex==indices.back())
+            {
+                // Pop the indices as they are found
+                indices.pop_back();
+            } else {
+                // Skip to next loop if not a selected index
+                rowIndex--;
+                continue;
+            }
+            // cout << "adding an example" << endl;
+            // No header exists in the temp train file
+            // Prepare the data structure
+            vector<vector<MyDType>> xData;
+            vector<MyDType> xRow;
+            vector<vector<MyDType>> yData;
+            vector<MyDType> yRow;
+            // Create a stream object
+            stringstream s(line);
+            // Populate the row
+            // remember target is at the beginning of the line
+            getline(s, dataPoint, ',');
+            yRow.emplace_back(stof(dataPoint));
+            while (getline(s, dataPoint, ',')) {
+                xRow.emplace_back(stof(dataPoint));
+            }
+            // Insert rows into data objects
+            xData.emplace_back(xRow);
+            yData.emplace_back(yRow);
+            // cout << "moving matrix to xOut and yOut" << endl;
+            // Insert into provided data object
+            xOut->emplace_back(move(Matrix(xData)));
+            yOut->emplace_back(move(Matrix(yData)));
+        }
+    }
+    // cout << "Adding to dataVector" << endl;
+    dataVector.emplace_back(move(xOut));
+    dataVector.emplace_back(move(yOut));
+}
 
 
 
-
-// getTestDataCopy()
-// getValidDataCopy()
-
-
-
-// This should become a class or part of a class!!!
+// This should become a class or part of a class instead of a function
 
 // function train (initializes model, trains, and stores final parameters)
 //   perform setup

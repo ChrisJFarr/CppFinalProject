@@ -10,6 +10,7 @@
 #include <fstream>
 #include <random>
 
+
 #include "constants.h"
 #include "matrix.h"
 
@@ -46,11 +47,11 @@ class DataLoader
 // Another option is to store the train-only data and randomly read from it
 {
 public:
-    DataLoader(string filePath, bool header=true, int targetPos=0, float testRatio=0.10, float validRatio=0.10);
+    DataLoader(string filePath, bool header, int targetPos, float testRatio, float validRatio, int maxExamples);
     ~DataLoader();  // Delete the temp train file for clean up
     void getTestDataCopy(int startingIndex, int batchSize, vector<unique_ptr<vector<Matrix>>>&);
     void getValidDataCopy(int startingIndex, int batchSize, vector<unique_ptr<vector<Matrix>>>&);
-    unique_ptr<vector<Matrix>> getTrainBatch(int batchSize);
+    void getTrainBatch(int batchSize, vector<unique_ptr<vector<Matrix>>>&);
 
 private:
     DataLoader(){};  // No default constructor, must pass fileName
@@ -61,24 +62,17 @@ private:
     string _tempPath = "DataLoader.csv";
     bool _header;
     int _targetPos;
-    int _totalSize, _trainSize, _testSize, _validSize;
+    int _totalSize, _trainSize, _testSize, _validSize, _maxExamples;
     float _testRatio, _validRatio;
     vector<int> _testIndices, _validIndices, _trainIndices;
     // store a pointer to a vector of matrix objects for data and targets
     unique_ptr<vector<Matrix>> _testData;
     unique_ptr<vector<Matrix>> _validData;
-
     unique_ptr<vector<Matrix>> _testTargets;
     unique_ptr<vector<Matrix>> _validTargets;
 
     // TODO Add file object for train, this maintains an open connection to the data object
-    // Don't forget to close it
-
-    // analyze()
-    // this should be called when constructed perhaps
-    // open the data source file
-    // learn and store the number of examples and the size/shape of each example
-    // remember target is at the beginning of the line
+    // Don't forget to close it (open it every time instead)
 
     // clean()
     // maybe convert to correct dtype
