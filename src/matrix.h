@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <vector>
+#include <iostream>
 
 #include "constants.h"
 
@@ -11,7 +12,8 @@ using namespace std;
 class Matrix 
 {
 public:
-    Matrix(vector<vector<MyDType>>&&); // Allow initialization using and existing 2d-vector 
+    Matrix(Matrix&&);  // Move contructor
+    Matrix(vector<vector<MyDType>>&); // Allow initialization using and existing 2d-vector, copy by value
     Matrix(Matrix&);  // Copy constructor, creates a deep-copy
     Matrix(int rows, int cols);  // This should allocate memory on the heap
     Matrix& operator=(Matrix&&);  // Move assignment operator

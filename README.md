@@ -196,7 +196,7 @@ class BaseLayer
     this needs to coordinate with BaseModel::load
   forward(unique-ptr&&)
     accepts a pointer rvalue argument
-    moves the unique pointer to outputs to the child layer
+    moves the unique pointer to outputs to the child laye0r
   backward(unique-ptr&&)
     accepts a pointer rvalue argument
     moves the unique pointer to gradients-wrt-inputs to the parent layer

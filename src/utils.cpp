@@ -1,5 +1,5 @@
-#include <random>
 #include "utils.h"
+
 
 // class Optimizer
 //   Use adam
@@ -24,8 +24,13 @@ DataLoader::DataLoader(string filePath, bool header, int targetPos, float testRa
     _testRatio = testRatio;
     _validRatio = validRatio;
     // call analyze() to set _testShape, _validShape
+    // Initialize the test and validation pointers
+    _testData = make_unique<vector<Matrix>>();
+    _testTargets = make_unique<vector<Matrix>>();
+    _validData = make_unique<vector<Matrix>>();
+    _validTargets = make_unique<vector<Matrix>>();
     analyze();
-    // call load()
+    split();
     load();
     // Print summary
     cout << "Total Examples: " << _totalSize;
@@ -37,6 +42,8 @@ DataLoader::DataLoader(string filePath, bool header, int targetPos, float testRa
 DataLoader::~DataLoader()
 {
     // TODO clean up temporary train file
+    const char* removePath = _tempPath.c_str();
+    remove(static_cast<const char*>(removePath));
 }
 
 // How long would it take to read the last 50 rows? (worst case for batch-size of 50)
@@ -82,47 +89,62 @@ void DataLoader::analyze()
     _trainSize = _totalSize - (_testSize + _validSize);
 }
 
-void DataLoader::load()
+
+void DataLoader::split()
 {
-    // TODO Start around here: just finished analyze
     // this should be called after analyze() in the constructor
     // using size variables for trainSize, testSize, and validSize
     // parse the file and write data to _test and _valid, no need to shuffle
 
     // Decide which indices belong to which part, this should be random
     // Randomly create testIndices, validIndices, and trainIndices(this one needs to be stored)
-    vector<int> testIndices, validIndices, trainIndices;
     // Iterate through and randomly assign until sizes are met
     srand(1987);  // Set seed once, and always the same for reproducibility
     float myRandomNumber;
     for(int i=0;i<_totalSize;i++) 
     {
         myRandomNumber = static_cast<float>(rand()) / RAND_MAX;
-        if((testIndices.size() < _testSize) && (myRandomNumber < (_testRatio/2.0)))
+        if((_testIndices.size() < _testSize) && (myRandomNumber < _testRatio))
         {
-            testIndices.emplace_back(i);
+            _testIndices.emplace_back(i);
         } 
-        else if((validIndices.size() < _validSize) && (myRandomNumber < (_validRatio/(1.0-_testRatio))))
+        else if((_validIndices.size() < _validSize) && (myRandomNumber < (_validRatio * 2.0)))
         {
-            validIndices.emplace_back(i);
+            _validIndices.emplace_back(i);
         } 
-        else if((trainIndices.size() < _trainSize))
+        else if((_trainIndices.size() < _trainSize))
         {
-            trainIndices.emplace_back(i);
+            _trainIndices.emplace_back(i);
+        } 
+        else 
+        {
+            // If hasn't been assigned, find one that isn't full yet
+            if(_testIndices.size() < _testSize){_testIndices.emplace_back(i);}
+            else if(_validIndices.size() < _validSize){_validIndices.emplace_back(i);}
+            else if(_trainIndices.size() < _trainSize){_trainIndices.emplace_back(i);}
+            else {
+                cout << "index: " << i << endl;
+                throw out_of_range("Found an index that doesn't belong?");
+                }
         }
     }
 
     // Debug, print out indices
     cout << "test: ";
-    for(int i=0; i<20;i++){cout << testIndices[i] << ",";}
+    for(int i=0; i<20;i++){cout << _testIndices[i] << ",";}
     cout << endl;
     cout << "valid: ";
-    for(int i=0; i<20;i++){cout << validIndices[i] << ",";}
+    for(int i=0; i<20;i++){cout << _validIndices[i] << ",";}
     cout << endl;
     cout << "train: ";
-    for(int i=0; i<20;i++){cout << trainIndices[i] << ",";}
+    for(int i=0; i<20;i++){cout << _trainIndices[i] << ",";}
     cout << endl;
+}
 
+
+
+void DataLoader::load()
+{
     // iterate through the examples, counting backwards from max index
     // use an if statement to check which portion it belongs to and move it there
     // if(i==testIndices[-1]) {move to test, pop last element from testIndices} 
@@ -130,39 +152,86 @@ void DataLoader::load()
     // else continue (skip over train)
         // open the data source file
     ifstream file(_filePath);  //, ios::in
+    ofstream tempFile(_tempPath);  // write train examples here
     // learn and store the number of examples and the size/shape of each example
     bool firstRow = true;  // Intialize this with true, set to false after first line is parsed
 
     string line, dataPoint;
-    vector<MyDType> row;
-    int rowIndex = 0;
+    int rowIndex = (_totalSize - 1);  // Start with the max index (since index vectors are sorted ascending)
     
     if(file.is_open())
     {
         while(file >> line)
         {
-            // Prepare the data structure
-            // Matrix can be initialized with a vector<vector<MyDType>>>
-            vector<vector<MyDType>> newExample;
-            // Add the second dimension for inserting data into
-            newExample.emplace_back(std::vector<float>());
             // If header, skip the first line
             if(_header && firstRow){firstRow=false;continue;};
-            // Clear the row for this iteration
-            row.clear();
+            // Debug
+            // cout << "rowIndex: " << rowIndex << endl;
+            // cout << "test: " << _testIndices.back() << endl;
+            // cout << "valid: " << _validIndices.back() << endl;
+            // cout << "train: " << _trainIndices.back() << endl;
+
+            // First determine if this is a train example
+            if((_trainIndices.size() > 0) && (rowIndex == _trainIndices.back()))
+            {
+                // Write example to temporary file
+                tempFile << line << endl;
+                // Remove index from train
+                _trainIndices.pop_back();
+                rowIndex--;
+                continue;
+            }
+            // Prepare the data structure
+            // Matrix can be initialized with a vector<vector<MyDType>>>
+            vector<vector<MyDType>> xData;
+            vector<MyDType> xRow;
+            vector<vector<MyDType>> yData;
+            vector<MyDType> yRow;
             // Create a stream object
             stringstream s(line);
             // Populate the row
             // remember target is at the beginning of the line
+            getline(s, dataPoint, ',');
+            yRow.emplace_back(stof(dataPoint));
             while (getline(s, dataPoint, ',')) {
-                row.push_back(stof(dataPoint));
+                xRow.emplace_back(stof(dataPoint));
             }
-            // TODO Decide where it needs to go
-            // If test, add to test
-            // If valid, add to valid
-            // If train, write example to a temporary file to batch-load from 
+            // Insert rows into data objects
+            xData.emplace_back(xRow);
+            yData.emplace_back(yRow);
+            // Create Matrix objects for storage
+            // unique_ptr<Matrix> xMatrixPtr = make_unique<Matrix>(xData);
+            // unique_ptr<Matrix> yMatrixPtr = make_unique<Matrix>(yData);
 
-            rowIndex++;
+            // Decide where it needs to go
+            // If test, add to test
+            if((_testIndices.size() > 0) && (rowIndex == _testIndices.back()))
+            {
+                // cout << "adding test data" << endl;
+                // Add to test
+                _testData->emplace_back(Matrix(xData));
+                // cout << "finished adding new matrix to _testData" << endl;
+                _testTargets->emplace_back(Matrix(yData));
+
+                // Pop last index on test
+                _testIndices.pop_back();
+                rowIndex--;
+                continue;
+            }
+            else if((_validIndices.size() > 0) && (rowIndex == _validIndices.back()))
+            {
+                // cout << "adding validation data" << endl;
+                // Add to valid
+                _validData->emplace_back(Matrix(xData));
+                _validTargets->emplace_back(Matrix(yData));
+                // Pop last index on valid
+                _validIndices.pop_back();
+                rowIndex--;
+                continue;
+            }
+            else {
+                throw out_of_range("rowIndex does not equal any available index.");
+            }
         }
     }
 
@@ -177,12 +246,40 @@ void DataLoader::load()
 //  look at all the data to find the max and min values
 //  rescale all the data in-place
 
-// unique_ptr<vector<Matrix>> DataLoader::getTestDataCopy()
-// {
-//     // Create deep copy of test data
-//     // Create a unique_ptr to new vector and return
-// }
-// unique_ptr<vector<Matrix>> DataLoader::getValidDataCopy()
+void DataLoader::getTestDataCopy(int startingIndex, int batchSize, vector<unique_ptr<vector<Matrix>>>& dataVector)
+{
+    // Create deep copy of test data
+    // Create a unique_ptr to new vector and return
+    unique_ptr<vector<Matrix>> xOut = make_unique<vector<Matrix>>();
+    unique_ptr<vector<Matrix>> yOut = make_unique<vector<Matrix>>();
+    // Copy test data to out data
+    for(int i=startingIndex;i<startingIndex+batchSize;i++)
+    {
+        // Copy the data and targets (running into a binding error 'Matrix&' vs 'const Matrix')
+        (*xOut).emplace_back(move((*_testData))[i]);
+        (*yOut).emplace_back(move((*_testTargets))[i]);
+    }
+    dataVector.emplace_back(move(xOut));
+    dataVector.emplace_back(move(yOut));
+}
+
+void DataLoader::getValidDataCopy(int startingIndex, int batchSize, vector<unique_ptr<vector<Matrix>>>& dataVector)
+{
+    // Create deep copy of validation data
+    // Create a unique_ptr to new vector and return
+    unique_ptr<vector<Matrix>> xOut = make_unique<vector<Matrix>>();
+    unique_ptr<vector<Matrix>> yOut = make_unique<vector<Matrix>>();
+    // Copy test data to out data
+    for(int i=startingIndex;i<startingIndex+batchSize;i++)
+    {
+        // Copy the data and targets (running into a binding error 'Matrix&' vs 'const Matrix')
+        (*xOut).emplace_back(move((*_validData))[i]);
+        (*yOut).emplace_back(move((*_validTargets))[i]);
+    }
+    dataVector.emplace_back(move(xOut));
+    dataVector.emplace_back(move(yOut));
+}
+// unique_ptr<vector<Matrix>> DataLoader::getValidDataCopy(int startingIndex, int batchSize)
 // {
 //     // Create deep copy of validation data
 //     // Create a unique_ptr to new vector and return
@@ -190,7 +287,7 @@ void DataLoader::load()
 // unique_ptr<vector<Matrix>> DataLoader::getTrainBatch(int batchSize)
 // {
 //     // loadTrainBatch(int batchSize)
-//     // this function randomly samples with replacement
+//     // this function randomly samples with replacement (underlying data is not shuffled)
 //     // read from the open train file the next n==batchSize lines
 //     // clean
 //     // read directly into matrix objects...

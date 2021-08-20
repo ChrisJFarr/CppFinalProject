@@ -5,6 +5,10 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <cstdio>
+#include <iostream>
+#include <fstream>
+#include <random>
 
 #include "constants.h"
 #include "matrix.h"
@@ -44,19 +48,22 @@ class DataLoader
 public:
     DataLoader(string filePath, bool header=true, int targetPos=0, float testRatio=0.10, float validRatio=0.10);
     ~DataLoader();  // Delete the temp train file for clean up
-    unique_ptr<vector<Matrix>> getTestDataCopy();
-    unique_ptr<vector<Matrix>> getValidDataCopy();
+    void getTestDataCopy(int startingIndex, int batchSize, vector<unique_ptr<vector<Matrix>>>&);
+    void getValidDataCopy(int startingIndex, int batchSize, vector<unique_ptr<vector<Matrix>>>&);
     unique_ptr<vector<Matrix>> getTrainBatch(int batchSize);
 
 private:
     DataLoader(){};  // No default constructor, must pass fileName
     void analyze();  // Analyze data, sets sizes, selects
+    void split(); // select and store indices
     void load();  // (prev parse) loop over files once again and add 
     string _filePath;
+    string _tempPath = "DataLoader.csv";
     bool _header;
     int _targetPos;
     int _totalSize, _trainSize, _testSize, _validSize;
     float _testRatio, _validRatio;
+    vector<int> _testIndices, _validIndices, _trainIndices;
     // store a pointer to a vector of matrix objects for data and targets
     unique_ptr<vector<Matrix>> _testData;
     unique_ptr<vector<Matrix>> _validData;

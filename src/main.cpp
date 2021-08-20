@@ -105,6 +105,27 @@ void functionBlock()
 
 }
 
+// Build this here, then move to utils.cpp
+// This will eventually take a xData Matrix, a yData Matrix, pred Matrix
+void printExample(Matrix xData, Matrix yData)
+{
+    // images are 28 x 28 // TODO START HERE! FInish implementing this 
+    for(int j=1;j<xData.cols()+1;j++)
+    {
+        int imageCols = 28;
+        int dataPoint = xData(0, j-1);  // Call Matrix accessor
+        // Decide how to represent the data point
+        char pixelRep;
+        if(dataPoint==0){pixelRep = ' ';}
+        else if(dataPoint<50){pixelRep = '\'';}
+        else{pixelRep = 'O';}
+        cout << pixelRep;  // Print it out
+        // If on column 28, end line
+        if(j%imageCols == 0){cout << endl;}
+    }
+    cout << endl << endl << "Target: " << yData(0, 0) << endl << endl;
+}
+
 
 int main() {
 
@@ -118,9 +139,22 @@ int main() {
     // Print single example size (from Matrix class rows() cols())
 
     // Print top 5 test examples
+    int nExamples = 5;
+    vector<unique_ptr<vector<Matrix>>> testData;
+    dataLoader.getTestDataCopy(0, nExamples, testData);
+    unique_ptr<vector<Matrix>> xTest = move(testData[0]);
+    unique_ptr<vector<Matrix>> yTest = move(testData[1]);
+    for(int i=0;i<nExamples;i++) printExample((*xTest)[i], (*yTest)[i]);
     // Print top 5 validation examples
+    vector<unique_ptr<vector<Matrix>>> validData;
+    dataLoader.getValidDataCopy(0, nExamples, validData);
+    unique_ptr<vector<Matrix>> xValid = move(validData[0]);
+    unique_ptr<vector<Matrix>> yValid = move(validData[1]);
+    for(int i=0;i<nExamples;i++) printExample((*xValid)[i], (*yValid)[i]);
     // Print top 5 train examples of a single batch
 
+
+    // Consider taking a batch approach to the test and validation data for memory efficiency (how much memory does it take up?)
     // Print the target distribution of a train batch
     // Print the target distribution of test set
     // Print the target distribution of validation set
