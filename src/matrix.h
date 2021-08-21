@@ -13,7 +13,7 @@ class Matrix
 {
 public:
     Matrix(Matrix&&);  // Move contructor
-    Matrix(vector<vector<MyDType>>&); // Allow initialization using and existing 2d-vector, copy by value internally
+    Matrix(vector<vector<MyDType>>&); // Allow initialization using an existing 2d-vector, copy by value internally
     Matrix(Matrix&);  // Copy constructor, creates a deep-copy
     Matrix(int rows, int cols);  // This should allocate memory on the heap
     Matrix& operator=(Matrix&&);  // Move assignment operator

@@ -3,12 +3,13 @@
 // Initializer for parameter layers
 void glorotUniformInitializer(Matrix& matrix)
 {
+    // http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf
     MyDType fan_in = static_cast<MyDType>(matrix.rows());
     MyDType fan_out = static_cast<MyDType>(matrix.cols());
     // limit = sqrt(6/(fan_in+fan_out))
     MyDType limit = sqrt(6./(fan_in+fan_out));
-    std::random_device rd;  //Will be used to obtain a seed for the random number engine
-    std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+    std::random_device rd;  // Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
     std::uniform_real_distribution<> dis(-limit, limit);
     for(int j=0;j<matrix.rows();j++)
     {
@@ -30,33 +31,75 @@ BaseLayer::BaseLayer()
     // Initialize the child and parent pointers (these go unused if not needed by inheriting layer)
     _parentLayers = vector<BaseLayer*>();
     _childLayers = vector<BaseLayer*>();
+    _inputs = nullptr;  // Already nullptr but being explicit
+    _gradients = nullptr; 
+}
+
+BaseLayer::BaseLayer(BaseLayer& other)
+{
+    if(DEBUG) std::cout << "BaseLayer::copy-constructor" << std::endl;
+    // Copy constructor: Copies parameters and reinitializes all other build vars
+    // TODO Implement copy constructor
+    // Copy layer shape
+    _inputShape = other._inputShape;
+    // Reinitialize these
+    _parentLayers = vector<BaseLayer*>();
+    _childLayers = vector<BaseLayer*>();
+    _inputs = nullptr;  // Already nullptr but being explicit
+    _gradients = nullptr; 
+
+}
+
+BaseLayer::BaseLayer(BaseLayer&& other)
+{
+    if(DEBUG) std::cout << "BaseLayer::move-constructor" << std::endl;
+    // Move constructor: Moves to new location and nullifies original
+    // Move all vars connection and build variables
+    _inputShape = move(other._inputShape);
+    _parentLayers = move(other._parentLayers);
+    _childLayers = move(other._childLayers);
+    // Clear the forward/backward results vars
+    _inputs = nullptr;  // Already nullptr but being explicit
+    _gradients = nullptr;
+    // Nullify the originals
+    other._inputs = nullptr;
+    other._gradients = nullptr;
+}
+
+BaseLayer& BaseLayer::operator=(BaseLayer&)
+{
+    if(DEBUG) std::cout << "BaseLayer::copy-assignment-operator" << std::endl;
+    // Copy assignment operator: Copies parameters and reinitializes all other build vars
+    // TODO Implement copy assignment operator 
+    return *this;
+}
+
+BaseLayer& BaseLayer::operator=(BaseLayer&&)
+{
+    if(DEBUG) std::cout << "BaseLayer::move-assignment-operator" << std::endl;
+    // Move assignment operator: Moves to new location and nullifies original
+    // TODO Implement move assignment operator
+    return *this;
 }
 
 BaseLayer::~BaseLayer()
 {
+    if(DEBUG) std::cout << "BaseLayer::destructor" << std::endl;
     // TODO?
     // Drop the connections
     _parentLayers.clear();
     _childLayers.clear();
 }
 
-BaseLayer::BaseLayer(BaseLayer& other)
+void BaseLayer::connectParent(BaseLayer& parent)
 {
-    std::cout << "BaseLayer::copy-constructor" << std::endl;
-    // This is called when copying the modelVector and should be done for threads only
-    // No copying of the inputs/outputs, just need to declare a unique ptr without allocation for the inputs?
-    // Copy the shared pointers of parameters to the new object in the inheriting class if necessary
-    // layer parameters are owned by the layer, copies of the parameters are a shared pointer
-    // Initialize parent and child vectors
-    _parentLayers = vector<BaseLayer*>();
-    _childLayers = vector<BaseLayer*>();
-}
-
-void BaseLayer::_connectParent(BaseLayer& parent)
-{
-    // connectParent (the child is called and passed the parent)
+    // connectParent (the child is called and passed to the parent)
     // parent.childLayer = this
-    // this.parentLayer = parent
+    // Make a pointer and move it to childLayer with emplace back, repeat for parent
+    BaseLayer* childLayer = this;  // Could this create that pointer lock loop thing on destruction?
+    parent._childLayers.emplace_back(childLayer);
+    // BaseLayer* parentLayer = &parent;
+    // _parentLayers.emplace_back(parentLayer);
 }
 
 void BaseLayer::_sendOutputs(shared_ptr<Matrix> outputs)
@@ -86,9 +129,46 @@ void BaseLayer::_sendGradients(shared_ptr<Matrix> gradients)
 
 InputLayer::InputLayer(int rows, int cols)
 {
+    if(DEBUG) std::cout << "InputLayer::parameterized-constructor" << std::endl;
     // Constructor
     vector<int> inputShape({rows, cols});
     BaseLayer::_setInputShape(inputShape);
+}
+
+InputLayer::InputLayer(InputLayer& other)
+{
+    if(DEBUG) std::cout << "InputLayer::copy-constructor" << std::endl;
+    // Copy constructor: Copies parameters and reinitializes all other build vars
+    // TODO Implement copy constructor
+
+}
+
+InputLayer::InputLayer(InputLayer&& other)
+{
+    if(DEBUG) std::cout << "InputLayer::move-constructor" << std::endl;
+    // Move constructor: Moves to new location and nullifies original
+    // TODO Implement move constructor
+}
+
+InputLayer& InputLayer::operator=(InputLayer& other)
+{
+    if(DEBUG) std::cout << "InputLayer::copy-assignment-operator" << std::endl;
+    // Copy assignment operator: Copies parameters and reinitializes all other build vars
+    // TODO Implement copy assignment operator
+    return *this;
+}
+
+InputLayer& InputLayer::operator=(InputLayer&& other)
+{
+    if(DEBUG) std::cout << "InputLayer::move-assignment-operator" << std::endl;
+    // Move assignment operator: Moves to new location and nullifies original
+    // TODO Implement move assignment operator
+    return *this;
+}
+
+InputLayer::~InputLayer()
+{
+    // TODO Implement destructor
 }
 
 void InputLayer::setInputs(unique_ptr<Matrix>&& inputs)
@@ -157,13 +237,16 @@ vector<int> DenseLayer::computeOutputShape()
     // uses input shape from parent and units
     // the operations are... matrix-multiply xw + b
     // (1x3)*(3*10) for size 10
-    return vector<int>({getInputShape()[0], _units});
+    // expected output shape (1, 10)
+    int inputRows = getInputShape()[0];
+    int unitsOut = _units;
+    return vector<int>({inputRows, unitsOut});
 }
 
 void DenseLayer::build()
 {
     // TODO HOw can I make sure this is called each time a thread is created
-    // THis must be ran once per initialization or copy (parameters are only created once)
+    // This must be ran once per initialization or copy (parameters are only created once)
     // Validate that only one parent connection exists
     if(_parentLayers.size() != 1) throw invalid_argument("DenseLayer must have exactly 1 parent layer");
     // Validate that input shape rows == 1, can only deal with 1xn-features shape (one example and flattened)
@@ -171,19 +254,45 @@ void DenseLayer::build()
     // Check if layer has previously been initialized, only create parameters upon first initialization
     if(_parameterVector->size()==0)
     {
-        // TODO COnsider moving this to a new function that takes any matrix
-        //   and initializes it
-        // http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf
         // Initialize the _parameterVector on the heap
         _parameterVector = make_shared<vector<Matrix>>();
+        // Weights must be position 0, and bias position 1
         // Build the weights matrix and initialize weights
         // weights-shape (input-shape[1], _units)
-
+        int inputFeatures = getInputShape()[1];
+        Matrix weights(inputFeatures, _units);
+        // Initialize with glorot uniform
+        glorotUniformInitializer(weights);
+        // Move weights to the shared parameter vector
+        _parameterVector->emplace_back(move(weights));
+        // Build the bias and explicity set to 0's
         // bias-shape (1, _units)
-        // Randomly initialize with uniform distribution and a small std
-        // Add both to _parameterVector
+        Matrix bias(1, _units);
+        for(MyDType& b: bias[0]) b = 0.0;
+        // Move bias to the shared parameter vector
+        _parameterVector->emplace_back(move(bias));        
     }
     _built = true;  // After complete, set _built to true
+}
+
+void DenseLayer::forward()
+{
+    // allocate memory for outputs using unique ptr, get outputshape
+    // compute outputs and set value in memory
+    // call BaseLayer::moveOutputs to move pointer to child
+
+}
+
+void DenseLayer::backward()
+{
+    // allocate memory for and compute derivative of gradients wrt parameters 
+    //     include regularization
+    //     use a unique ptr, one for grads-wrt-weights and another for grads-wrt-bias
+    //     move both to private _grads in order of [weights, bias]
+    // allocate memory for gradients wrt inputs on stack using unique ptr
+    //     array is same size as inputs
+    // compute derivative of gradients wrt inputs
+    // call BaseLayer::backward to move gradients-wrt-inputs pointer to the parent
 }
 
 unique_ptr<vector<Matrix>>&& DenseLayer::extractGradients()
@@ -205,24 +314,14 @@ void DenseLayer::updateParameters(unique_ptr<vector<Matrix>> updates)
     // This shouldn't be called on the copies, only needs to be called once for all copies
 }
 
-void DenseLayer::forward()
+void DenseLayer::getParams()
 {
-    // allocate memory for outputs using unique ptr, get outputshape
-    // compute outputs and set value in memory
-    // call BaseLayer::moveOutputs to move pointer to child
-
+    // TODO Figure this out...
 }
 
-void DenseLayer::backward()
+void DenseLayer::setParams()
 {
-    // allocate memory for and compute derivative of gradients wrt parameters 
-    //     include regularization
-    //     use a unique ptr, one for grads-wrt-weights and another for grads-wrt-bias
-    //     move both to private _grads in order of [weights, bias]
-    // allocate memory for gradients wrt inputs on stack using unique ptr
-    //     array is same size as inputs
-    // compute derivative of gradients wrt inputs
-    // call BaseLayer::backward to move gradients-wrt-inputs pointer to the parent
+    // TODO Figure this out
 }
 
 

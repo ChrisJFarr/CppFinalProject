@@ -20,11 +20,14 @@ public:
 
     // TODO Finish implementing rule of 5
     BaseLayer();  // Default constructor
-    BaseLayer(BaseLayer&);  // Copy constructor
+    BaseLayer(BaseLayer&);  // Copy constructor: Copies parameters and reinitializes all other build vars
+    BaseLayer(BaseLayer&&); // Move constructor: Moves to new location and nullifies original
+    BaseLayer& operator=(BaseLayer&);  // Copy assignment operator: Copies parameters and reinitializes all other build vars
+    BaseLayer& operator=(BaseLayer&&); // Move assignment operator: Moves to new location and nullifies original
     ~BaseLayer();
 
     // Public methods to be used by inheriting layers
-    void _connectParent(BaseLayer&);  // Must be called in order across full model graph
+    void connectParent(BaseLayer&);  // Must be called in order across full model graph
     // Forward and backward must be called by the child layer
     void _sendOutputs(shared_ptr<Matrix>);  // Move layer outputs to child inputs in forward pass
     void _sendGradients(shared_ptr<Matrix>);  // Move gradients to parent in backward pass
@@ -36,7 +39,7 @@ public:
     // TODO IDEALLY: Would have some op like "secureParameters" on forward pass, released when the op is done...
 
     // Abstract methods
-    virtual vector<shared_ptr<Matrix>> getParams() = 0;
+    virtual void getParams() = 0;
     virtual void setParams() = 0;
     virtual void forward() = 0;  // Perform operation, call to move outputs to child
     virtual void backward() = 0;  // Compute gradients wrt inputs, call to move gradients to parent
@@ -47,6 +50,7 @@ public:
     vector<BaseLayer*> _parentLayers;  // Pointer is not owned or managed by layers
     vector<BaseLayer*> _childLayers;  // Pointer is not owned or managed by layers
     bool hasParams(){return false;} // Returns false unless overriden
+    // These are shared to allow for multi-to-multi-connections
     shared_ptr<Matrix> _inputs;  // These come from the parent except for InputLayer
     shared_ptr<Matrix> _gradients;  // These come from the child and are set by moveGradients (grad wrt inputs)
 
@@ -65,6 +69,12 @@ class InputLayer: public BaseLayer
 {
 public:
     InputLayer(int, int);
+    InputLayer(InputLayer&);  // Copy constructor: Copies parameters and reinitializes all other build vars
+    InputLayer(InputLayer&&); // Move constructor: Moves to new location and nullifies original
+    InputLayer& operator=(InputLayer&);  // Copy assignment operator: Copies parameters and reinitializes all other build vars
+    InputLayer& operator=(InputLayer&&); // Move assignment operator: Moves to new location and nullifies original
+    ~InputLayer();
+
     void setInputs(unique_ptr<Matrix>&& inputs);  // Input layer has a different interface
     vector<int> computeOutputShape();
     void forward();  // Validate input shape, pass inputs to child layer
@@ -75,7 +85,7 @@ private:
     void backward(){};  // InputLayer has no backward pass
     // This layer has no params
     void setParams(){};  
-    vector<shared_ptr<Matrix>> getParams(){return vector<shared_ptr<Matrix>>();};
+    void getParams(){};
 };
 
 
@@ -95,6 +105,9 @@ public:
     // getGradients (get an rvalue unique_ptr<vector<unique_ptr<Matrix>>> to gradients declared on heap)
     void forward();
     void backward();
+    // TODO Figure these out
+    void getParams();  // TODO Consider sending a reference? The datatype can't be right...
+    void setParams();  // Pass a reference to the params
     // Public attributes
     int _units;
     float _reg;

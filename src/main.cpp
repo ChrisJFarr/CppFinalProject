@@ -313,6 +313,22 @@ void testMatrix()
         string matrixMathMultValueResult = (std::all_of(matrixMathMultValueTest.begin(), matrixMathMultValueTest.end(), [](bool v) { return v; }) ? "success" : "fail");
         cout << matrixMathMultValueResult << endl;
     }
+    {
+    // TODO Test this copy operation works properly...
+    // cout << "new address:" << &(*_data) << endl;
+    // Manual deep-copy (Maybe this will fix my seg fault bug...)
+    // for(vector<MyDType> rows: data)
+    // {
+    //     (*_data).emplace_back(vector<MyDType>());
+    //     for(MyDType dataPoint: rows)
+    //     {
+    //         (*_data)[(*_data).size()-1].emplace_back(dataPoint);
+    //         // cout << (*_data)[(*_data).size()-1].back();
+    //     }
+    // }
+    // cout << endl;
+    // cout << "allocated and copied data to new matrix." << endl;
+    }
     
     //////// END OF TESTING matrix.h //////////////
 }
@@ -321,13 +337,13 @@ void testMatrix()
 int main() {
 
     ////////// Testing utils.h ///////////////////
-    testUtils();
+    // testUtils();
     //////// END OF TESTING utils.h //////////////
     ////////// Testing layer.h ///////////////////
-    testLayer();
+    // testLayer();
     //////// END OF TESTING layer.h //////////////
     ////////// Testing matrix.h ///////////////////
-    testMatrix();
+    // testMatrix();
     //////// END OF TESTING matrix.h //////////////
 
     // TODO PLan where to go next...
@@ -335,7 +351,84 @@ int main() {
     // Need to build the model now
     // Preparing layers and model class for building the model
     // Step 1: It should be able to generate a prediction (with random initialization)
+
+    // Continue building here and dispursing code to layer.h and testLayer()
+
+    // What steps need to be taken to initialize layers, connecting them, 
+    // moving them, and copying them.
+
+    // Top Considerations:
+    // * location and handling of shared parameters (must be shared by all layers and only initialized once)
+    // * size-dependencies between connected layers
+    // * completeness of the model graph (must start with an input layer and connect through to a loss layer)
+    // * layer-specific constraints and interaction between layers
+
+    // To initialize a model...
+
+    // Dependencies
+    MyDType regularization = 0.0001;
+    int inputFeatures = 100;  // Usually this would come from a small data sample
+    int denseLayer1Units = 100;
+
+    // Initialize a unique ptr to a modelVector on the heap
+    vector<unique_ptr<BaseLayer>> modelVector;
+    // Initialize each layer (This goes into MyModel)
     
+    // Input layer
+    unique_ptr<InputLayer> inputLayer = make_unique<InputLayer>(1, inputFeatures);
+    modelVector.emplace_back(inputLayer);
+    // Reference: https://www.sololearn.com/Discuss/2235791/c-how-to-avoid-object-slicing-with-derived-classes-being-stored-in-base-vector
+    // TODO Need to do more research on object slicing
+    // the key seems to be using more virtual functions
+    //  and perhaps implement getClass and getName (are these used by some default functions?)
+    // Call an inputlayer function on it...
+    // dynamic_cast<InputLayer>(modelVector[0]).computeOutputShape;
+    // TODO Implement BaseLayer and InputLayer...
+    // TODO Copy constructor
+    // TODO Move constructor
+    // TODO Move assigment operator
+    // TODO Copy assignment operator
+    // TODO Destructor
+
+    // // Dense layer
+    unique_ptr<DenseLayer> denseLayer1 = make_unique<DenseLayer>(denseLayer1Units, regularization);
+    denseLayer1->connectParent(*inputLayer);
+    // // Test that denseLayer is the child of inputLayer(inputLayer._childLayers)
+    // cout << "Test that denseLayer1 is child of inputLayer..." << endl;
+    // cout << "do these match?" << endl;
+    // cout<< &denseLayer1 << " denseLayer1 address" << endl;
+    // cout << &(*inputLayer->_childLayers[0]) << " inputLayer child address" << endl;
+    // // Test that inputLayer is the parent of denseLayer1(denseLayer1._parentLayers)
+    // cout << "Test that inputLayer is parent of denseLayer1..." << endl;
+    // cout << "do these match?" << endl;
+    // cout<< &inputLayer << " inputLayer address" << endl;
+    // cout << &(*denseLayer1->_parentLayers[0]) << " denseLayer1 parent address" << endl;
+
+
+    // Relu layer
+
+
+    // Dense layer
+    // Relu layer
+    // Softmax output layer
+    // Cross entropy loss layer
+    
+    
+    //  Connect the child to the parent
+    //   connect updates child and parent attributes
+    // Move layer to the modelVector
+    // Loop through layers and build
+    //  build validates compatibilty between layers
+    //  once built, the model can perform forward and backward pass
+
+    // To copy a model...
+    // Initialize a new modelVector on the heap
+    // Loop through layers
+    //  copy layer to local variable
+    //  Connect the child copy to the parent copy
+    //  move the copy to the new modelVector
+    
+
 
     // Intialize model
     

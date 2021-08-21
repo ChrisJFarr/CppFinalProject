@@ -8,21 +8,6 @@ Matrix::Matrix(vector<vector<MyDType>> &data)
     // This should allocate memory on the heap and copy the data there
     _data = make_unique<vector<vector<MyDType>>>();
     (*_data) = data;
-    // TODO Test this copy operation works properly...
-    // cout << "new address:" << &(*_data) << endl;
-    // Manual deep-copy (Maybe this will fix my seg fault bug...)
-    // for(vector<MyDType> rows: data)
-    // {
-    //     (*_data).emplace_back(vector<MyDType>());
-    //     for(MyDType dataPoint: rows)
-    //     {
-    //         (*_data)[(*_data).size()-1].emplace_back(dataPoint);
-    //         // cout << (*_data)[(*_data).size()-1].back();
-    //     }
-    // }
-    // cout << endl;
-    // cout << "allocated and copied data to new matrix." << endl;
-
     _rows = _data->size();
     if(_rows > 0)
     {
@@ -30,7 +15,6 @@ Matrix::Matrix(vector<vector<MyDType>> &data)
     } else {
         _cols = 0;
     }
-    // cout << "exiting data constructor" << endl;
 } 
 
 Matrix::Matrix(Matrix& other)
@@ -59,13 +43,8 @@ Matrix::Matrix(Matrix&& other)
     _data = move(other._data);
     // cout << "data moved to new object" << endl;
     // Set size of _rows and _cols
-    _rows = _data->size();
-    if(_rows > 0)
-    {
-        _cols = (*_data)[0].size();
-    } else {
-        _cols = 0;
-    }
+    _rows = other._rows;
+    _cols = other._cols;
 }
 
 Matrix::Matrix(int rows, int cols)
@@ -87,24 +66,19 @@ Matrix& Matrix::operator=(Matrix&& other)
     // cout << "Matrix move assignment operator." << endl;
     // _data = unique_ptr<vector<vector<MyDType>>>(move(other._data));
     _data = move(other._data);
-    _rows = _data->size();
-    if(_rows > 0)
-    {
-        _cols = (*_data)[0].size();
-    } else {
-        _cols = 0;
-    }
-
+    _rows = other._rows;
+    _cols = other._cols;
     return *this;
 }
 
-
-Matrix& Matrix::operator=(Matrix&)
+Matrix& Matrix::operator=(Matrix& other)
 {
-    cout << "Matrix copy assignment operator not implemented yet" << endl;
+    // Copy assignment operator, creates a deep copy
+    _data = make_unique<vector<vector<MyDType>>>(*other._data);
+    _rows = other._rows;
+    _cols = other._cols;
     return *this;
 }
-
 
 float Matrix::operator()(int row, int col)
 {
