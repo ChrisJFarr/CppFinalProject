@@ -35,7 +35,6 @@ private:
 //   updates the parameters
 //   releases the lock
 
-
 class DataLoader
 // This is a dynamic loader
 // It gets the information about the available data, such as n-examples

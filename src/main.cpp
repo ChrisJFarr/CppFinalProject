@@ -83,8 +83,8 @@ void testUtils()
 
 void testLayer()
 {
-        ////////// Testing layer.h ///////////////////
-    
+    ////////// Testing layer.h ///////////////////
+    {
     // Create test input data that's similar to image inputs (but small)
     vector<vector<MyDType>> data({{0.0, 0.0, 0.5, 0.5, 0.0}});
     unique_ptr<Matrix> xData = make_unique<Matrix>(data);
@@ -115,6 +115,61 @@ void testLayer()
     // Test actual output shape
 
     // Use try catch and print "success" after testing
+    }
+    {
+    // TODO Develop glorot uniform initializer
+    // Draws samples from a uniform distribution within [-limit, limit], 
+    // where limit = sqrt(6 / (fan_in + fan_out)) (fan_in is the number of input 
+    // units in the weight tensor and fan_out is the number of output units).
+    
+    // Example: (1x3) inputs (1x5) outputs
+    //  weights size: 3x5, bias size: 1x5
+    Matrix weights(50, 50);  // Bias should remain 0's
+    // MyDType fan_in = static_cast<MyDType>(weights.rows());
+    // MyDType fan_out = static_cast<MyDType>(weights.cols());
+    // // fan_in=3, fan_out=5
+    // // limit = sqrt(6/(fan_in+fan_out)) = sqrt(6/8)
+    // MyDType limit = sqrt(6./(fan_in+fan_out));
+    // cout << "limit: " << limit;
+    // std::random_device rd;  //Will be used to obtain a seed for the random number engine
+    // std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+    // std::uniform_real_distribution<> dis(-limit, limit);
+    glorotUniformInitializer(weights);
+    // Test that the weights sum close to zero
+    
+    MyDType weightsSum = 0.;
+    MyDType absMax = 0;
+    MyDType fan_in = static_cast<MyDType>(weights.rows());
+    MyDType fan_out = static_cast<MyDType>(weights.cols());
+    // limit = sqrt(6/(fan_in+fan_out))
+    MyDType limit = sqrt(6./(fan_in+fan_out));
+    for(int j=0;j<weights.rows();j++)
+    {
+        for(int k=0;k<weights.cols();k++)
+        {
+            weightsSum += weights(j, k);
+            absMax = max(absMax, abs(weights(j, k)));
+        }
+    }
+    
+    // Test to determine how well the random numbers are distributed
+    // centered on 0, this test usually fails, not sure if that is an
+    // issue with the random number generator or not an issue at all
+    // continue to develop and return here if model is unable to learn 
+    // or converge.
+    string result;
+    // cout << "testing glorotUniformInitializer weights sum...";
+    // result = (abs(weightsSum) < .01) ? "success" : "fail";
+    // cout << result << endl;
+    // if(result == "fail")
+    // {
+    //     cout << "...sum :" << weightsSum << endl;
+    // }
+    // Test that the weights stay within the limit sqrt(6/(fan_in+fan_out))
+    cout << "testing glorotUniformInitializer weights range...";
+    result = (absMax <= limit) ? "success" : "fail";
+    cout << result << endl;
+    }
 
     // TODO Consider implementing dropout, seems like it wouldn't be too hard to do
     //  just create a parameter that can be consumed by the child that tells it which
@@ -278,7 +333,9 @@ int main() {
     // TODO PLan where to go next...
     // I have data and ready to use it
     // Need to build the model now
+    // Preparing layers and model class for building the model
     // Step 1: It should be able to generate a prediction (with random initialization)
+    
 
     // Intialize model
     

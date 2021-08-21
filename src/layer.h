@@ -1,14 +1,18 @@
 #ifndef LAYER_H_
 #define LAYER_H_
 
+#include <iostream>
 #include <memory>
 #include <vector>
+#include <random>
+#include "math.h"
 #include "matrix.h"
 
 using namespace std;
 
-// Need to declare a matrix class to handle (and abstract) variable types of data
-// TODO After defining the matrix class, return here and replace type where needed
+// Initializer for parameter layers
+void glorotUniformInitializer(Matrix& matrix);
+
 
 class BaseLayer {
 
@@ -37,6 +41,7 @@ public:
     virtual void forward() = 0;  // Perform operation, call to move outputs to child
     virtual void backward() = 0;  // Compute gradients wrt inputs, call to move gradients to parent
     virtual vector<int> computeOutputShape() = 0; // Compute output shape for child layer to consume with setInputShape
+    virtual void build() = 0;  // To be ran after a new model or model copy is created for validating the model
 
     // Attributes
     vector<BaseLayer*> _parentLayers;  // Pointer is not owned or managed by layers
@@ -63,6 +68,7 @@ public:
     void setInputs(unique_ptr<Matrix>&& inputs);  // Input layer has a different interface
     vector<int> computeOutputShape();
     void forward();  // Validate input shape, pass inputs to child layer
+    void build();  // Validate setup
 private:
     // Uneeded abstract methods
     InputLayer(){};  // No default constructor
@@ -76,10 +82,12 @@ private:
 class DenseLayer: public BaseLayer
 {
 public:
-    DenseLayer(int units, float reg=0.0);
+    DenseLayer(int units, float reg=0.00001);
     DenseLayer(DenseLayer&);
+    DenseLayer& operator=(DenseLayer&);  // Copy assignment operator
+    void operator=(DenseLayer&&) = delete;  // No moving allowed... maybe, or just use same logic as copy assignnment
     vector<int> computeOutputShape();
-    void build();  // compute output shape, initialize
+    void build();  // Validate setup, initialize parameters if not already present
     bool hasParams(){return true;}
     unique_ptr<vector<Matrix>>&& extractGradients();
     // TODO parameters, protected with mutex, wait to update weights until backward pass is done
@@ -100,6 +108,7 @@ private:
     shared_ptr<vector<Matrix>> _parameterVector;  // Vector of parameters of the layer
 };
 
+
 class ReluLayer: public BaseLayer
 {
 public:
@@ -112,10 +121,12 @@ public:
     void forward();
     void backward();
     vector<int> computeOutputShape();
+    void build();  // Validate setup
 
     // Attributes
     bool built = false;
 };
+
 
 class Softmax: public BaseLayer
 {
@@ -123,6 +134,7 @@ public:
     void forward();
     void backward();
     vector<int> computeOutputShape();
+    void build();  // Validate setup
 };
 
 
@@ -135,6 +147,7 @@ public:
     CrossEntropyLoss(CrossEntropyLoss&);
     void forward(unique_ptr<Matrix>);
     void backward();
+    void build();  // Validate setup
     // targets are passed directly to this layer
     // no child layer
 private:

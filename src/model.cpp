@@ -33,6 +33,7 @@ void BaseModel::createModelThread()
 //     loop over modelVector 
 //     copy each layer to local modelVector
 //     reconnect the local graph (loop over vector and call connectParent from the child, passing the parent)
+//     add a method in BaseLayer to be called here that verifies everything is setup properly (.build()?)
 //     loop forever 
 //       wait to get data from the messageQueue
 //       Parse the InputData:

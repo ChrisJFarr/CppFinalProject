@@ -1,5 +1,24 @@
 #include "layer.h"
-#include <iostream>
+
+// Initializer for parameter layers
+void glorotUniformInitializer(Matrix& matrix)
+{
+    MyDType fan_in = static_cast<MyDType>(matrix.rows());
+    MyDType fan_out = static_cast<MyDType>(matrix.cols());
+    // limit = sqrt(6/(fan_in+fan_out))
+    MyDType limit = sqrt(6./(fan_in+fan_out));
+    std::random_device rd;  //Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<> dis(-limit, limit);
+    for(int j=0;j<matrix.rows();j++)
+    {
+        for(int k=0;k<matrix.cols();k++)
+        {
+            matrix[j][k] = dis(gen);
+        }
+    }
+    return;
+}
 
 
 BaseLayer::BaseLayer()
@@ -104,6 +123,11 @@ void InputLayer::forward()
     BaseLayer::_sendOutputs(_inputs);
 }
 
+void InputLayer::build()
+{
+    // TODO Validate connnections exist
+}
+
 
 DenseLayer::DenseLayer(int units, float reg)
 {
@@ -113,6 +137,18 @@ DenseLayer::DenseLayer(int units, float reg)
     _reg = reg;  // regularization controlled by hyperparam
     _gradientsAvailable = false;
     _built = false;
+}
+
+DenseLayer::DenseLayer(DenseLayer& other)
+{
+    // Implement copy constructor
+    _units = other._units;
+    _reg = other._reg;
+    _built = false;  // Must be rebuilt after copying for validation
+    _gradientsAvailable = false;  // New copy doesn't start with gradients
+    // Copy the shared pointer to the parameter vector as is
+    _parameterVector = other._parameterVector;
+    // parameter gradients remains uninitialized here
 }
 
 vector<int> DenseLayer::computeOutputShape()
@@ -135,7 +171,14 @@ void DenseLayer::build()
     // Check if layer has previously been initialized, only create parameters upon first initialization
     if(_parameterVector->size()==0)
     {
+        // TODO COnsider moving this to a new function that takes any matrix
+        //   and initializes it
+        // http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf
+        // Initialize the _parameterVector on the heap
+        _parameterVector = make_shared<vector<Matrix>>();
+        // Build the weights matrix and initialize weights
         // weights-shape (input-shape[1], _units)
+
         // bias-shape (1, _units)
         // Randomly initialize with uniform distribution and a small std
         // Add both to _parameterVector
@@ -162,7 +205,6 @@ void DenseLayer::updateParameters(unique_ptr<vector<Matrix>> updates)
     // This shouldn't be called on the copies, only needs to be called once for all copies
 }
 
-
 void DenseLayer::forward()
 {
     // allocate memory for outputs using unique ptr, get outputshape
@@ -184,6 +226,11 @@ void DenseLayer::backward()
 }
 
 
+void ReluLayer::build()
+{
+
+}
+
 void ReluLayer::forward()
 {
     // allocate memory for outputs (same size as inputs) on heap with unique_ptr
@@ -199,9 +246,16 @@ void ReluLayer::backward()
     // multipy by gradients from child to get gradients-wrt-inputs
     // call BaseLayer::backward to move pointer to parent
 }
+
 vector<int> ReluLayer::computeOutputShape()
 {
     return vector<int>();
+}
+
+
+void Softmax::build()
+{
+    // TODO
 }
 
 void Softmax::forward()
@@ -214,6 +268,7 @@ void Softmax::backward()
     // ? need work here
     // https://github.gatech.edu/cfarr31/DeepLearning7643/blob/master/assignment1/models/softmax_regression.py
 }
+
 vector<int> Softmax::computeOutputShape()
 {
     return vector<int>();
@@ -229,17 +284,25 @@ CrossEntropyLoss::CrossEntropyLoss(CrossEntropyLoss& other)
 {
     
 }
+
+void CrossEntropyLoss::build()
+{
+    // TODO
+}
+
 void CrossEntropyLoss::forward(unique_ptr<Matrix> targets)
 {
     // compute loss using inputs from parent and targets
     // don't call BaseModel::forward, store the loss here
 }
+
 void CrossEntropyLoss::backward()
 {
     // allocate memory on stack with unique-ptr the same shape as the inputs to store the gradients
     // compute the gradients of the loss wtr the inputs
     // call BaseLayer::backward to move loss to parent layer
 }
+
 vector<int> CrossEntropyLoss::computeOutputShape()
 {
     return vector<int>();
