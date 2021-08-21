@@ -122,8 +122,20 @@ vector<MyDType>& Matrix::operator[](std::size_t n)
 
 Matrix Matrix::mathMultiply(Matrix& other)
 {
-    return *this;
+    // Validate that both matrix objects are same shape
+    if(!((this->rows()==other.rows()) && (this->cols()==other.cols()))) throw invalid_argument(
+        "Matrix A must be same shape as Matrix B in Matrix::mathMultiply");
+    Matrix targetMatrix(_rows, _cols);
+    for(int j=0;j<targetMatrix.rows();j++)
+    {
+        for(int k=0;k<targetMatrix.cols();k++)
+        {
+            targetMatrix[j][k] = (*this)[j][k] * other[j][k];
+        }
+    }
+    return targetMatrix;
 }
+
 Matrix Matrix::operator*(Matrix& other)
 {
     // Validate that the other matrix and this matrix are compatible
@@ -143,13 +155,25 @@ Matrix Matrix::operator*(Matrix& other)
             }
         }
     }
-    
     return targetMatrix;
 }
+
 Matrix Matrix::operator+(Matrix& other)
 {
-    return *this;
+    // Validate that both matrix objects are same shape
+    if(!((this->rows()==other.rows()) && (this->cols()==other.cols()))) throw invalid_argument(
+        "Matrix A must be same shape as Matrix B in Matrix::operator+");
+    Matrix targetMatrix(_rows, _cols);
+    for(int j=0;j<targetMatrix.rows();j++)
+    {
+        for(int k=0;k<targetMatrix.cols();k++)
+        {
+            targetMatrix[j][k] = (*this)[j][k] + other[j][k];
+        }
+    }
+    return targetMatrix;
 }
+
 Matrix Matrix::transpose()
 {
     return *this;

@@ -119,18 +119,27 @@ vector<int> DenseLayer::computeOutputShape()
 {
     // compute output shape 
     // uses input shape from parent and units
-    // the operations are... matrix-multiply wx + b
-    return vector<int>({});
+    // the operations are... matrix-multiply xw + b
+    // (1x3)*(3*10) for size 10
+    return vector<int>({getInputShape()[0], _units});
 }
 
 void DenseLayer::build()
 {
+    // TODO HOw can I make sure this is called each time a thread is created
+    // THis must be ran once per initialization or copy (parameters are only created once)
     // Validate that only one parent connection exists
-    // create array of size of output shape on the heap use shared pointer handle
-    // vector<shared_ptr<paramdatatype[]>>_params; owned by layer
-    // create array for weights, add pointer to array to _params vector
-    // create array for bias, add pointer to _params vector
-    // randomly initialize bias and weights
+    if(_parentLayers.size() != 1) throw invalid_argument("DenseLayer must have exactly 1 parent layer");
+    // Validate that input shape rows == 1, can only deal with 1xn-features shape (one example and flattened)
+    if(getInputShape()[0] != 1) throw invalid_argument("DenseLayer inputs must be a flattened single example");
+    // Check if layer has previously been initialized, only create parameters upon first initialization
+    if(_parameterVector->size()==0)
+    {
+        // weights-shape (input-shape[1], _units)
+        // bias-shape (1, _units)
+        // Randomly initialize with uniform distribution and a small std
+        // Add both to _parameterVector
+    }
     _built = true;  // After complete, set _built to true
 }
 
@@ -156,7 +165,7 @@ void DenseLayer::updateParameters(unique_ptr<vector<Matrix>> updates)
 
 void DenseLayer::forward()
 {
-    // allocate memory for outputs using unique ptr
+    // allocate memory for outputs using unique ptr, get outputshape
     // compute outputs and set value in memory
     // call BaseLayer::moveOutputs to move pointer to child
 

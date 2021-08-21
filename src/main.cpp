@@ -124,19 +124,9 @@ void testLayer()
     //////// END OF TESTING layer.h //////////////
 }
 
-int main() {
-
-
-    ////////// Testing utils.h ///////////////////
-    // testUtils();
-    //////// END OF TESTING utils.h //////////////
-
-    ////////// Testing layer.h ///////////////////
-    // testLayer();
-    //////// END OF TESTING layer.h //////////////
-
-
-    ////////// Testing matrix.h ///////////////////
+void testMatrix()
+{
+        ////////// Testing matrix.h ///////////////////
     {
     // Test setting values with [] accessor operator
     Matrix myMatrix1(5, 5), myMatrix2(1, 5), myMatrix3(5, 1);
@@ -217,15 +207,73 @@ int main() {
 
     }
     {
-        // Test adding 2 Matrix
+        // Test adding 2 Matrix objects
+        /*
+            * Matrix objects must be the same shape
+            myMatrix1({{1, 1, 1}})
+            myMatrix2({{2, 2, 2}})
+            expected {{3, 3, 3}}
+        */
+        vector<vector<MyDType>> data1({{1, 1, 1}}), data2({{2, 2, 2}});
+        Matrix myMatrix1(data1), myMatrix2(data2);
+        Matrix newMatrix = myMatrix1 + myMatrix2;
+
+        cout << "testing Matrix+Matrix output shape...";
+        string matrixAddShapeTest = ((newMatrix.rows()==1) && (newMatrix.cols()==3)) ? "success" : "fail";
+        cout << matrixAddShapeTest << endl;
+
+        cout << "testing Matrix+Matrix output values...";
+        vector<MyDType> expected({3., 3., 3.});
+        vector<bool> matrixAddValueTest;
+        for(int i=0;i<newMatrix.cols();i++)
+        {
+            matrixAddValueTest.emplace_back(abs(newMatrix(0, i)-expected[i])<.001);
+        }
+        string matrixAddValueResult = (std::all_of(matrixAddValueTest.begin(), matrixAddValueTest.end(), [](bool v) { return v; }) ? "success" : "fail");
+        cout << matrixAddValueResult << endl;
     }
     
-    // Test multiplying 2 Matrix mathMultiply (element-wise and must be exact same shape)
+    {
+        // Test adding 2 Matrix mathMultiply (element-wise and must be exact same shape)
+        /*
+            * Matrix objects must be the same shape
+            myMatrix1({{3, 3, 3}})
+            myMatrix2({{2, 2, 2}})
+            expected {{6, 6, 6}}
+        */
+        vector<vector<MyDType>> data1({{3, 3, 3}}), data2({{2, 2, 2}});
+        Matrix myMatrix1(data1), myMatrix2(data2);
+        Matrix newMatrix = myMatrix1.mathMultiply(myMatrix2);
+        cout << "testing Matrix.mathMultiply(Matrix) output shape...";
+        string matrixMathMultShapeTest = ((newMatrix.rows()==1) && (newMatrix.cols()==3)) ? "success" : "fail";
+        cout << matrixMathMultShapeTest << endl;
 
-
-    //////// END OF TESTING matrix.h //////////////
-
+        cout << "testing Matrix.mathMultiply(Matrix) output values...";
+        vector<MyDType> expected({6., 6., 6.});
+        vector<bool> matrixMathMultValueTest;
+        for(int i=0;i<newMatrix.cols();i++)
+        {
+            matrixMathMultValueTest.emplace_back(abs(newMatrix(0, i)-expected[i])<.001);
+        }
+        string matrixMathMultValueResult = (std::all_of(matrixMathMultValueTest.begin(), matrixMathMultValueTest.end(), [](bool v) { return v; }) ? "success" : "fail");
+        cout << matrixMathMultValueResult << endl;
+    }
     
+    //////// END OF TESTING matrix.h //////////////
+}
+
+
+int main() {
+
+    ////////// Testing utils.h ///////////////////
+    testUtils();
+    //////// END OF TESTING utils.h //////////////
+    ////////// Testing layer.h ///////////////////
+    testLayer();
+    //////// END OF TESTING layer.h //////////////
+    ////////// Testing matrix.h ///////////////////
+    testMatrix();
+    //////// END OF TESTING matrix.h //////////////
 
     // TODO PLan where to go next...
     // I have data and ready to use it
@@ -233,11 +281,7 @@ int main() {
     // Step 1: It should be able to generate a prediction (with random initialization)
 
     // Intialize model
-    // 
-
-
-
-
+    
     // Test generating a prediction
     // Test extracting the parameters
     // Test extracting the parameter gradients
