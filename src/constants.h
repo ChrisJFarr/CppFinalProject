@@ -1,11 +1,11 @@
 #ifndef CONSTANTS_H_
 #define CONSTANTS_H_
 
+#include <limits>
 
-const int INPUT_SHAPE = 100;
-
-const bool DEBUG = false;
-
+const static int INPUT_SHAPE = 784;
+const static bool DEBUG = true;
 typedef float MyDType;
+const MyDType static inf = std::numeric_limits<MyDType>::infinity();
 
 #endif

@@ -150,8 +150,47 @@ Matrix Matrix::operator+(Matrix& other)
 
 Matrix Matrix::transpose()
 {
-    return *this;
+    Matrix targetMatrix(_cols, _rows);  // Swap cols and row sizes
+    for(int j=0;j<_rows;j++)
+    {
+        for(int k=0;k<_cols;k++)
+        {
+            targetMatrix[k][j] = (*this)(j, k);
+        }
+    }
+    return targetMatrix;
 }
+
+Matrix Matrix::identity()
+{
+    // Create identity matrix of size of calling matrix
+    Matrix targetMatrix(_rows, _cols);  // Initializes to zeros
+    for(int j=0;j<_rows;j++){
+        for(int k=0;k<_cols;k++)
+        {
+            if(j=k){
+                targetMatrix[j][k] = 1.0;
+            } else {
+                targetMatrix[j][k] = 0.0;
+            }
+        }
+    }
+    return targetMatrix;
+}
+
+MyDType Matrix::max()
+{
+    MyDType maxValue = -inf;
+    for(int j=0;j<_rows;j++)
+    {
+        for(int k=0;k<_cols;k++)
+        {
+            maxValue = std::max(maxValue, (*this)(j, k));
+        }
+    } 
+    return maxValue;
+}
+
 // Scalar operators
 Matrix Matrix::operator*(MyDType&)
 {

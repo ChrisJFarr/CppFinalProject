@@ -382,8 +382,7 @@ int main() {
 
     // Dependencies
     MyDType regularization = 0.0001;
-    int inputFeatures = 100;  // Usually this would come from a small data sample
-    int denseLayer1Units = 100;
+    int denseLayer1Units = 10;
     string result;
 
     // Initialize a unique ptr to a modelVector on the heap
@@ -391,12 +390,24 @@ int main() {
     // Initialize each layer (This goes into MyModel)
     
     // Input layer
-    InputLayer inputLayer = InputLayer(1, inputFeatures);
-    // modelVector.emplace_back(move(inputLayer));  obsolete
+    InputLayer inputLayer(1, INPUT_SHAPE);
 
     // Dense layer
     DenseLayer denseLayer1 = DenseLayer(denseLayer1Units, regularization);
     denseLayer1(inputLayer);  // Connect parent with () operator
+
+    // Relu layer
+    ReluLayer reluLayer1;
+    reluLayer1(denseLayer1);  // Connect to denselayer
+    
+    // Softmax output layer
+    SoftMaxLayer softMaxLayer;
+    softMaxLayer(reluLayer1);
+
+    // Cross entropy loss layer
+    CrossEntropyLossLayer crossEntropyLossLayer;
+    crossEntropyLossLayer(softMaxLayer);
+
     // Test that denseLayer is the child of inputLayer(inputLayer._childLayers)
     cout << "Test that denseLayer1 is child of inputLayer...";
     result = (&denseLayer1 == &(*inputLayer._childLayers[0])) ? "success" : "fail";
@@ -405,21 +416,10 @@ int main() {
     cout << "Test that inputLayer is parent of denseLayer1...";
     result = (&inputLayer == &(*denseLayer1._parentLayers[0])) ? "success" : "fail";
     cout << result << endl;
-
-
-    // TODO Start here
-    // Relu layer
-    ReluLayer reluLayer1 = ReluLayer();
-    reluLayer1(denseLayer1);
-
-    
-    // Softmax output layer
-    // Cross entropy loss layer
-
-    // TODO Test that hasParams returns false for inputlayer, relu, softmax and true for dense
+    // Test that hasParams returns false for inputlayer, relu, softmax and true for dense
     cout << "testing hasParams on each layer type:" << endl;
     cout << "testing InputLayer...";
-    result = (!InputLayer(1, inputFeatures).hasParams()) ? "success" : "fail";  // Expecting false
+    result = (!InputLayer(1, INPUT_SHAPE).hasParams()) ? "success" : "fail";  // Expecting false
     cout << result << endl;
     cout << "testing DenseLayer...";
     result = (DenseLayer(denseLayer1Units, regularization).hasParams()) ? "success" : "fail";  // Expecting true
@@ -427,8 +427,69 @@ int main() {
     cout << "testing ReluLayer...";
     result = (!ReluLayer().hasParams()) ? "success" : "fail";  // Expecting false
     cout << result << endl;
+    cout << "testing SoftMaxLayer...";
+    result = (!SoftMaxLayer().hasParams()) ? "success" : "fail";  // Expecting false
+    cout << result << endl;
+    cout << "testing CrossEntropyLoss...";
+    result = (!CrossEntropyLossLayer().hasParams()) ? "success" : "fail";  // Expecting false
+    cout << result << endl;
     
-    
+    // Create a model
+    BaseLayer* inputLayerPtr = &inputLayer;
+    BaseLayer* crossEntropyLossLayerPtr = &crossEntropyLossLayer;
+    BaseModel model(inputLayerPtr, crossEntropyLossLayerPtr);
+    // Validate the model with build
+    cout << "validating model... " << endl;
+    model.build();
+    cout << "validating model again..." << endl;
+    model.build();  // To validate that the first run doesn't break anything, run it twice
+    cout << "success" << endl;
+
+    // Create sample data and perform forward pass
+
+    // Initialize DataLoader
+    // string fileName;
+    // // prompt user for project directory
+    // cout << "what's the full path to the data?" << endl;
+    // cin >> fileName;
+    // /home/chris/Desktop/final-project/src/data/train.csv
+    // /home/pi/Desktop/CppFinalProject/src/data/train.csv
+    DataLoader dataLoader("/home/chris/Desktop/final-project/src/data/train.csv", true, 0, 0.10, 0.10, 1000);
+
+    // Print number of train, test, and validation examples
+    // Print single example size (from Matrix class rows() cols())
+
+    // Print some test examples
+    int nExamples = 1;
+    vector<unique_ptr<vector<Matrix>>> testData(0);
+    dataLoader.getTestDataCopy(0, nExamples, testData);
+    unique_ptr<vector<Matrix>> xTest = move(testData[0]), yTest = move(testData[1]);
+    cout << "Test Examples:" << endl;
+    for(int i=0;i<nExamples;i++) printExample((*xTest)[i], (*yTest)[i]);
+    // Perform forward pass using example
+    // TODO implement forward on model
+    // Loop over examples and call forward on the model
+    cout << "performing forward pass on model..." << endl;
+    unique_ptr<Matrix> example;
+    example = make_unique<Matrix>(move((*xTest)[0]));
+    model.forward(move(example));
+    cout << "success" << endl;
+
+    // Test the outputs
+    OutputData outputData;
+    model.getOutputs(outputData);
+    Matrix outputs = *outputData.outputs;
+    cout << "viewing model outputs..." << endl;
+    for(int j=0;j<outputs.rows();j++)
+    {
+        for(int k=0;k<outputs.cols();k++)
+        {
+            cout << outputs(j,k);
+        }
+        cout << endl;
+    }
+
+
     //  Connect the child to the parent
     //   connect updates child and parent attributes
     // Move layer to the modelVector

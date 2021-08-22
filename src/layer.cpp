@@ -46,7 +46,8 @@ BaseLayer::BaseLayer(BaseLayer& other)
     _parentLayers = vector<BaseLayer*>();
     _childLayers = vector<BaseLayer*>();
     _inputs = nullptr;  // Already nullptr but being explicit
-    _gradients = nullptr; 
+    _gradients = nullptr;
+    _built = false;
 
 }
 
@@ -66,26 +67,40 @@ BaseLayer::BaseLayer(BaseLayer&& other)
     other._gradients = nullptr;
 }
 
-BaseLayer& BaseLayer::operator=(BaseLayer&)
+BaseLayer& BaseLayer::operator=(BaseLayer& other)
 {
     if(DEBUG) std::cout << "BaseLayer::copy-assignment-operator" << std::endl;
     // Copy assignment operator: Copies parameters and reinitializes all other build vars
     // TODO Implement copy assignment operator 
+    _parentLayers = vector<BaseLayer*>();
+    _childLayers = vector<BaseLayer*>();
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+    _built = false;
     return *this;
 }
 
-BaseLayer& BaseLayer::operator=(BaseLayer&&)
+BaseLayer& BaseLayer::operator=(BaseLayer&& other)
 {
     if(DEBUG) std::cout << "BaseLayer::move-assignment-operator" << std::endl;
     // Move assignment operator: Moves to new location and nullifies original
     // TODO Implement move assignment operator
+    _parentLayers = other._parentLayers;
+    _childLayers = other._childLayers;
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+    _built = other._built;  // If previously built, it remains built
+
+    other._inputs = nullptr;
+    other._gradients = nullptr;
     return *this;
 }
 
 BaseLayer::~BaseLayer()
 {
     if(DEBUG) std::cout << "BaseLayer::destructor" << std::endl;
-    // TODO?
     // Drop the connections
     _parentLayers.clear();
     _childLayers.clear();
@@ -105,6 +120,8 @@ void BaseLayer::connectParent(BaseLayer& parent)
     // BaseLayer* childLayer = this;  // Could this create that pointer lock loop thing on destruction?
     parent._childLayers.emplace_back(this);
     this->_parentLayers.emplace_back(&parent);
+    // Send output size to children nodes
+    _setInputShape(parent.getInputShape());
     // BaseLayer* parentLayer = &parent;
     // _parentLayers.emplace_back(parentLayer);
 }
@@ -118,6 +135,10 @@ void BaseLayer::_sendOutputs(shared_ptr<Matrix> outputs)
     {
         // Copy the shared pointer to each child
         _childLayers[i]->_inputs = outputs;
+        // Update inputs flag
+        _hasInputs = false;  // This layer doesn't need its inputs anymore
+        _inputs = nullptr;  // Dropping inputs here, won't be needed and can free up some memory
+        _childLayers[i]->_hasInputs = true;
     }
 }
 
@@ -130,6 +151,10 @@ void BaseLayer::_sendGradients(shared_ptr<Matrix> gradients)
     {
         // Copy the shared pointer to each child
         _parentLayers[i]->_gradients = gradients;
+        // Update gradients flags
+        _parentLayers[i]->_hasGradients = false;  // This may happen more than once for the parent if has multiple children
+        // Here might be a good place to drop the gradients, but for analyzing model performance going to keep them
+        _hasGradients = true;
     }
 }
 
@@ -145,61 +170,22 @@ InputLayer::InputLayer(int rows, int cols)
 InputLayer::InputLayer(InputLayer& other)
 {
     if(DEBUG) std::cout << "InputLayer::copy-constructor" << std::endl;
-    // Copy constructor: Copies parameters and reinitializes all other build vars
-    _parentLayers = vector<BaseLayer*>();
-    _childLayers = vector<BaseLayer*>();
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
-    _built = false;
 }
 
 InputLayer::InputLayer(InputLayer&& other)
 {
     if(DEBUG) std::cout << "InputLayer::move-constructor" << std::endl;
-    // Move constructor: Moves to new location and nullifies original
-    // TODO Implement move constructor
-    _parentLayers = other._parentLayers;
-    _childLayers = other._childLayers;
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
-    _built = other._built;  // If previously built, it remains built
-
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
 }
 
 InputLayer& InputLayer::operator=(InputLayer& other)
 {
     if(DEBUG) std::cout << "InputLayer::copy-assignment-operator" << std::endl;
-    // Copy assignment operator: Copies parameters and reinitializes all other build vars
-    // TODO Implement copy assignment operator
-    _parentLayers = vector<BaseLayer*>();
-    _childLayers = vector<BaseLayer*>();
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
-    _built = false;
     return *this;
 }
 
 InputLayer& InputLayer::operator=(InputLayer&& other)
 {
     if(DEBUG) std::cout << "InputLayer::move-assignment-operator" << std::endl;
-    // Move assignment operator: Moves to new location and nullifies original
-    // TODO Implement move assignment operator
-    _parentLayers = other._parentLayers;
-    _childLayers = other._childLayers;
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
-    _built = other._built;  // If previously built, it remains built
-
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
     return *this;
 }
 
@@ -222,12 +208,14 @@ void InputLayer::setInputs(unique_ptr<Matrix>&& inputs)
     // Input size must be passed along when connecting the graph to allow child layers to create
     // parameters.
     // Validate inputs shape (if passing all local tests, the only test needed should be here for new inputs.)
+    if(DEBUG) cout << "InputLayer::setInputs" << endl;
     bool dim1Test, dim2Test;
     dim1Test = (*inputs).rows() == getInputShape()[0];
     dim2Test = (*inputs).cols() == getInputShape()[1];
     if(!(dim1Test && dim2Test)) throw logic_error(
         "Passing wrong shape inputs to InputLayer.");
     _inputs = move(inputs);  // Move from a unique ptr to a shared one in the input layer only
+    _hasInputs = true;
 }
 
 void InputLayer::forward()
@@ -346,6 +334,7 @@ vector<int> DenseLayer::getOutputShape()
 
 void DenseLayer::build()
 {
+    if(DEBUG) cout << "DenseLayer::build" << endl;
     // TODO HOw can I make sure this is called each time a thread is created
     // This must be ran once per initialization or copy (parameters are only created once)
     // Validate that only one parent connection exists
@@ -353,8 +342,9 @@ void DenseLayer::build()
     // Validate that input shape rows == 1, can only deal with 1xn-features shape (one example and flattened)
     if(getInputShape()[0] != 1) throw invalid_argument("DenseLayer inputs must be a flattened single example");
     // Check if layer has previously been initialized, only create parameters upon first initialization
-    if(_parameterVector->size()==0)
+    if(_parameterVector==nullptr)
     {
+        if(DEBUG) cout << "building DenseLayer parameter vectors" << endl;
         // Initialize the _parameterVector on the heap
         _parameterVector = make_shared<vector<Matrix>>();
         // Weights must be position 0, and bias position 1
@@ -453,67 +443,28 @@ void DenseLayer::setParams()
 
 ReluLayer::ReluLayer()
 {
-    // TODO 
+    if(DEBUG) std::cout << "ReluLayer::constructor" << std::endl;
 }
 
 ReluLayer::ReluLayer(ReluLayer& other)
 {
     if(DEBUG) std::cout << "ReluLayer::copy-constructor" << std::endl;
-    // Copy constructor: Copies parameters and reinitializes all other build vars
-    _parentLayers = vector<BaseLayer*>();
-    _childLayers = vector<BaseLayer*>();
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
-    _built = false;
 }
 
 ReluLayer::ReluLayer(ReluLayer&& other)
 {
     if(DEBUG) std::cout << "ReluLayer::move-constructor" << std::endl;
-    // Move constructor: Moves to new location and nullifies original
-    // TODO Implement move constructor
-    _parentLayers = other._parentLayers;
-    _childLayers = other._childLayers;
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
-    _built = other._built;  // If previously built, it remains built
-
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
 }
 
 ReluLayer& ReluLayer::operator=(ReluLayer& other)
 {
     if(DEBUG) std::cout << "ReluLayer::copy-assignment-operator" << std::endl;
-    // Copy assignment operator: Copies parameters and reinitializes all other build vars
-    // TODO Implement copy assignment operator
-    _parentLayers = vector<BaseLayer*>();
-    _childLayers = vector<BaseLayer*>();
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
-    _built = false;
     return *this;
 }
 
 ReluLayer& ReluLayer::operator=(ReluLayer&& other)
 {
     if(DEBUG) std::cout << "ReluLayer::move-assignment-operator" << std::endl;
-    // Move assignment operator: Moves to new location and nullifies original
-    // TODO Implement move assignment operator
-    _parentLayers = other._parentLayers;
-    _childLayers = other._childLayers;
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
-    _built = other._built;  // If previously built, it remains built
-
-    _inputs = nullptr;
-    _gradients = nullptr;
-    _inputShape = other._inputShape;
     return *this;
 }
 
@@ -523,19 +474,30 @@ ReluLayer::~ReluLayer()
     if(DEBUG) std::cout << "ReluLayer::destructor" << std::endl;
 }
 
-
-
-
 void ReluLayer::build()
 {
-
+    // Validate that a parent and child connection exists
+    if(_parentLayers.size() != 1) throw invalid_argument("ReluLayer must have exactly 1 parent layer");
+    if(_childLayers.size() == 0) throw invalid_argument("ReluLayer must have a child layer");
+    _built = true;
 }
 
 void ReluLayer::forward()
 {
     // allocate memory for outputs (same size as inputs) on heap with unique_ptr
+    vector<int> outputShape = getOutputShape();
+    shared_ptr<Matrix> outputs = make_shared<Matrix>(outputShape[0], outputShape[1]);
     // compute relu function assign to memory
+    for(int j=0;j<outputs->rows();j++)
+    {
+        for(int k=0;k<outputs->cols();k++)
+        {
+            MyDType val = (*_inputs)[j][k];
+            (*outputs)[j][k] = (val < 0) ? 0.0 : val;
+        }
+    }
     // call BaseLayer::moveOutputs to move pointer to child
+    BaseLayer::_sendOutputs(outputs);
 }
 
 void ReluLayer::backward()
@@ -547,63 +509,104 @@ void ReluLayer::backward()
     // call BaseLayer::backward to move pointer to parent
 }
 
-vector<int> ReluLayer::computeOutputShape()
+vector<int> ReluLayer::getOutputShape()
 {
-    return vector<int>();
+    return getInputShape();
 }
 
 
-void Softmax::build()
+void SoftMaxLayer::build()
 {
-    // TODO
+    // Validate one parent connections and at least 1 child
+    // Validate that a parent and child connection exists
+    if(_parentLayers.size() != 1) throw invalid_argument("ReluLayer must have exactly 1 parent layer");
+    if(_childLayers.size() == 0) throw invalid_argument("ReluLayer must have a child layer");
+    _built = true;
 }
 
-void Softmax::forward()
+void SoftMaxLayer::forward()
 {
     // safe softmax
+    // https://e2eml.school/softmax.html
+    // Send output to child layer
+    // allocate memory for outputs (same size as inputs) on heap with unique_ptr
+    vector<int> outputShape = getOutputShape();
+    shared_ptr<Matrix> outputs = make_shared<Matrix>(outputShape[0], outputShape[1]);
+    // Find max value in matrix
+    MyDType maxInput = _inputs->max();
+    // Compute softmax and populate 
+    MyDType expSum = 0.0;
+    // Fill outputs with exp(val-max) and also sum
+    for(int j=0;j<outputs->rows();j++)
+    {
+        for(int k=0;k<outputs->cols();k++)
+        {
+            MyDType val = (*_inputs)[j][k];
+            (*outputs)[j][k] = exp(val-maxInput);
+            expSum += (*outputs)[j][k];  // Sum as we go
+        }
+    }
+    // Update outputs with final values
+    for(int j=0;j<outputs->rows();j++)
+    {
+        for(int k=0;k<outputs->cols();k++)
+        {
+            (*outputs)[j][k] /= expSum;
+        }
+    }
+    // call BaseLayer::moveOutputs to move pointer to child
+    BaseLayer::_sendOutputs(outputs);
 }
 
-void Softmax::backward()
+void SoftMaxLayer::backward()
 {
     // ? need work here
     // https://github.gatech.edu/cfarr31/DeepLearning7643/blob/master/assignment1/models/softmax_regression.py
+    // https://e2eml.school/softmax.html
+    // d_softmax = (                                                           
+    //     softmax * np.identity(softmax.size)                                 
+    //     - softmax.transpose() @ softmax)
+
 }
 
-vector<int> Softmax::computeOutputShape()
+vector<int> SoftMaxLayer::getOutputShape()
 {
-    return vector<int>();
+    return getInputShape();
 }
 
 
-CrossEntropyLoss::CrossEntropyLoss()
+void CrossEntropyLossLayer::build()
 {
-
+    // TODO: exactly one parent layer and no child layer allowed
+    if(_parentLayers.size() != 1) throw invalid_argument("CrossEntropyLoss must have exactly 1 parent layer");
+    if(_childLayers.size() != 0) throw invalid_argument("CrossEntropyLoss must not have a child layer");
+    _built = true;
 }
 
-CrossEntropyLoss::CrossEntropyLoss(CrossEntropyLoss& other)
-{
-    
-}
-
-void CrossEntropyLoss::build()
-{
-    // TODO
-}
-
-void CrossEntropyLoss::forward(unique_ptr<Matrix> targets)
+MyDType CrossEntropyLossLayer::forward(unique_ptr<Matrix>&& targets)
 {
     // compute loss using inputs from parent and targets
-    // don't call BaseModel::forward, store the loss here
+    // don't call BaseModel::sendOutputs, store the loss in retrieveLoss
+    // Two forms are created
+    //  Expanded form in same shape as inputs
+    //  Summed form scalar
+    // The shape of loss needs to be the same as the inputs
+    // y_expanded = np.zeros(shape=x_pred.shape)
+    // y_expanded[np.arange(y.shape[0]), y] = 1.0
+    // # Compute cross-entropy
+    // loss = -np.mean((y_expanded * np.log(x_pred)).sum(axis=1))
+    return 1.0;
+
 }
 
-void CrossEntropyLoss::backward()
+void CrossEntropyLossLayer::backward()
 {
     // allocate memory on stack with unique-ptr the same shape as the inputs to store the gradients
     // compute the gradients of the loss wtr the inputs
     // call BaseLayer::backward to move loss to parent layer
 }
 
-vector<int> CrossEntropyLoss::computeOutputShape()
+vector<int> CrossEntropyLossLayer::getOutputShape()
 {
-    return vector<int>();
+    return vector<int>({1});
 }

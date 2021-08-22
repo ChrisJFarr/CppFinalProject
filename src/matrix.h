@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <iostream>
+#include "math.h"
 
 #include "constants.h"
 
@@ -24,6 +25,8 @@ public:
     Matrix operator*(Matrix&);
     Matrix operator+(Matrix&);
     Matrix transpose();
+    Matrix identity();
+    MyDType max();
     // Scalar operators
     Matrix operator*(MyDType&);
     int rows(){return _rows;}

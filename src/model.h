@@ -11,7 +11,7 @@
 
 #include "constants.h"
 #include "matrix.h"
-
+#include "layer.h"
 
 // Data objects for communicating with message queue
 struct InputData 
@@ -23,7 +23,9 @@ struct InputData
 
 struct OutputData 
 {
+public:
     // std::unique_ptr<std::vector<float>> outputs = nullptr;
+    unique_ptr<Matrix> outputs;
     // std::vector<std::unique_ptr<std::vector<float>>> parameterGradients;
     // // (mean-gradloss-wrt-inputs-er-outputs) 
     // std::vector<std::unique_ptr<std::vector<float>>> layerGradients;
@@ -62,10 +64,11 @@ class BaseModel
 // This class manages multi-threading and generic components
 public:
     // TODO implement the rule of five
-    BaseModel();
+    BaseModel(BaseLayer* inputLayer, BaseLayer* lossLayer);
     BaseModel(BaseModel&);
     ~BaseModel();
 
+    void build();  // Validates graph, required to run before a forward pass can be performed
     void createModelThread();
 
     void save();
@@ -80,23 +83,29 @@ private:
     std::vector<std::thread> threads; // holds all threads that have been launched within this object
     static std::mutex _mtx;           // mutex shared by all traffic objects for protecting cout 
 
+    bool built;
+
     // 2 queues, one for inputs and one for outputs
     // TODO Probably need to add a public method like "sendData" for external usage
     InputQueue<InputData> _inputQueue;
     OutputQueue<OutputData> _outputQueue;
+
+    // Keep the graph private in the basemodel
+    BaseLayer* _inputLayer;
+    BaseLayer* _lossLayer;
 
     // ModelVector stores the model architecture information
     // std::vector<BaseLayer> modelVector;  // TODO Implement after declaring BaseLayer class
 
 };
 
-class MyModel: public BaseModel
-{
-public:
-    // This class contains the models architecture instructions and is problem-specific
-    MyModel();
-    void buildModelGraph();
-};
+// class MyModel: public BaseModel
+// {
+// public:
+//     // This class contains the models architecture instructions and is problem-specific
+//     MyModel();
+//     void buildModelGraph();
+// };
 
 
 #endif

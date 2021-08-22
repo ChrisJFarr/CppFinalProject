@@ -37,15 +37,18 @@ public:
     // TODO IDEALLY: Would have some op like "secureParameters" on forward pass, released when the op is done...
 
     // Virtual methods
-    virtual void build() = 0;  // To be ran after a new model or model copy is created for validating the model
-    virtual void setInputs(){};  // Only used for the input layer
-    virtual void forward()=0;  // Perform operation, call to move outputs to child
-    virtual void backward()=0;  // Compute gradients wrt inputs, call to move gradients to parent
+    virtual void build(){};  // To be ran after a new model or model copy is created for validating the model
+    virtual void setInputs(unique_ptr<Matrix>&&){cout << "nothing is happening" << endl;};  // Only used for the input layer
+    virtual void forward(){};  // Perform operation, call to move outputs to child
+    virtual MyDType forward(unique_ptr<Matrix>&&){return MyDType();}; // Loss layers require a Matrix input and output a scalar loss
+    virtual void backward(){};  // Compute gradients wrt inputs, call to move gradients to parent
     virtual vector<int> getOutputShape(){return vector<int>();}; // Compute output shape for child layer to consume with setInputShape
+    virtual bool isLossLayer(){return false;}  // Override this with true if loss layer
     virtual bool hasParams(){return false;} // Returns false unless overriden
     virtual void getParams(){};
     virtual void setParams(){};
     virtual void extractGradients(unique_ptr<vector<Matrix>>&){};  // Pass a unique_ptr to a Matrix vector by reference and set there
+    virtual string getLayerType(){return string("BaseLayer");}
 
     // Attributes
     vector<BaseLayer*> _parentLayers;  // Pointer is not owned or managed by layers
@@ -59,6 +62,8 @@ public:
     // Store attributes
     vector<int> _inputShape;
     bool _built;
+    bool _hasInputs;
+    bool _hasGradients;
 private:
 };
 
@@ -79,6 +84,7 @@ public:
     void forward();  // Perform operation, call to move outputs to child
     void backward();  // Compute gradients wrt inputs, call to move gradients to parent
     vector<int> getOutputShape(); // Compute output shape for child layer to consume with setInputShape
+    string getLayerType(){return string("InputLayer");}
 private:
 };
 
@@ -105,6 +111,7 @@ public:
     // TODO Figure these out
     void getParams();  // TODO Consider sending a reference? The datatype can't be right...
     void setParams();  // Pass a reference to the params
+    string getLayerType(){return string("DenseLayer");}
     // Public attributes
     int _units;
     float _reg;
@@ -134,38 +141,39 @@ public:
     // Methods
     void forward();
     void backward();
-    vector<int> computeOutputShape();
+    vector<int> getOutputShape();
     void build();  // Validate setup
+    string getLayerType(){return string("ReluLayer");}
 
     // Attributes
     bool built = false;
 };
 
 
-class Softmax: public BaseLayer
+class SoftMaxLayer: public BaseLayer
 {
 public:
     void forward();
     void backward();
-    vector<int> computeOutputShape();
+    vector<int> getOutputShape();
     void build();  // Validate setup
+    string getLayerType(){return string("SoftMaxLayer");}
 };
 
 
-class CrossEntropyLoss : public BaseLayer
+class CrossEntropyLossLayer : public BaseLayer
 {
 //   targets are passed directly to this layer
 //   no child layer
 public:
-    CrossEntropyLoss();
-    CrossEntropyLoss(CrossEntropyLoss&);
-    void forward(unique_ptr<Matrix>);
+    MyDType forward(unique_ptr<Matrix>&& targets);
     void backward();
     void build();  // Validate setup
+    bool isLossLayer(){return true;}
     // targets are passed directly to this layer
     // no child layer
-private:
-    vector<int> computeOutputShape();  // Output shape is not needed since no child layer
+    vector<int> getOutputShape();  // Output shape is not needed since no child layer
+    string getLayerType(){return string("CrossEntropyLossLayer");}
 };
 
 #endif
