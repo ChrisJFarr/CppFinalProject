@@ -93,11 +93,18 @@ BaseLayer::~BaseLayer()
 
 void BaseLayer::connectParent(BaseLayer& parent)
 {
+    if(DEBUG) 
+    {
+        cout << "BaseLayer::connectParent" << endl;
+        cout << "Parent in address:" << &parent << endl;
+        cout << "Child calling connect:" << this << endl;
+    }
     // connectParent (the child is called and passed to the parent)
     // parent.childLayer = this
     // Make a pointer and move it to childLayer with emplace back, repeat for parent
-    BaseLayer* childLayer = this;  // Could this create that pointer lock loop thing on destruction?
-    parent._childLayers.emplace_back(childLayer);
+    // BaseLayer* childLayer = this;  // Could this create that pointer lock loop thing on destruction?
+    parent._childLayers.emplace_back(this);
+    this->_parentLayers.emplace_back(&parent);
     // BaseLayer* parentLayer = &parent;
     // _parentLayers.emplace_back(parentLayer);
 }
@@ -139,8 +146,12 @@ InputLayer::InputLayer(InputLayer& other)
 {
     if(DEBUG) std::cout << "InputLayer::copy-constructor" << std::endl;
     // Copy constructor: Copies parameters and reinitializes all other build vars
-    // TODO Implement copy constructor
-
+    _parentLayers = vector<BaseLayer*>();
+    _childLayers = vector<BaseLayer*>();
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+    _built = false;
 }
 
 InputLayer::InputLayer(InputLayer&& other)
@@ -148,6 +159,16 @@ InputLayer::InputLayer(InputLayer&& other)
     if(DEBUG) std::cout << "InputLayer::move-constructor" << std::endl;
     // Move constructor: Moves to new location and nullifies original
     // TODO Implement move constructor
+    _parentLayers = other._parentLayers;
+    _childLayers = other._childLayers;
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+    _built = other._built;  // If previously built, it remains built
+
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
 }
 
 InputLayer& InputLayer::operator=(InputLayer& other)
@@ -155,6 +176,12 @@ InputLayer& InputLayer::operator=(InputLayer& other)
     if(DEBUG) std::cout << "InputLayer::copy-assignment-operator" << std::endl;
     // Copy assignment operator: Copies parameters and reinitializes all other build vars
     // TODO Implement copy assignment operator
+    _parentLayers = vector<BaseLayer*>();
+    _childLayers = vector<BaseLayer*>();
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+    _built = false;
     return *this;
 }
 
@@ -163,12 +190,31 @@ InputLayer& InputLayer::operator=(InputLayer&& other)
     if(DEBUG) std::cout << "InputLayer::move-assignment-operator" << std::endl;
     // Move assignment operator: Moves to new location and nullifies original
     // TODO Implement move assignment operator
+    _parentLayers = other._parentLayers;
+    _childLayers = other._childLayers;
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+    _built = other._built;  // If previously built, it remains built
+
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
     return *this;
 }
 
 InputLayer::~InputLayer()
 {
     // TODO Implement destructor
+    if(DEBUG) std::cout << "InputLayer::destructor" << std::endl;
+}
+
+void InputLayer::build()
+{
+    // Validate connnections exist
+    if(_childLayers.size()==0) throw logic_error("Attempting to build an InputLayer with no child layer");
+    if(_parentLayers.size()!=0) throw logic_error("InputLayer must not have parent connections");
+    _built = true;
 }
 
 void InputLayer::setInputs(unique_ptr<Matrix>&& inputs)
@@ -184,16 +230,6 @@ void InputLayer::setInputs(unique_ptr<Matrix>&& inputs)
     _inputs = move(inputs);  // Move from a unique ptr to a shared one in the input layer only
 }
 
-vector<int> InputLayer::computeOutputShape()
-{
-    // Implement this specific to the layer
-    // Move and return the resulting vector
-    // This layer has the same input and output shape
-    vector<int> outputs = getInputShape();
-    // Do I need to move this out?
-    return outputs;
-}
-
 void InputLayer::forward()
 {
     // First validate that the layer is connected to a child layer
@@ -203,14 +239,26 @@ void InputLayer::forward()
     BaseLayer::_sendOutputs(_inputs);
 }
 
-void InputLayer::build()
+void InputLayer::backward()
 {
-    // TODO Validate connnections exist
+    // TODO Implement backward here
+    // This really isn't needed though..
+}
+
+vector<int> InputLayer::getOutputShape()
+{
+    // Implement this specific to the layer
+    // Move and return the resulting vector
+    // This layer has the same input and output shape
+    vector<int> outData;
+    outData = getInputShape();
+    return outData;
 }
 
 
 DenseLayer::DenseLayer(int units, float reg)
 {
+    if(DEBUG) std::cout << "DenseLayer::data-constructor" << std::endl;
     // constructor
     // set attributes
     _units = units;
@@ -221,7 +269,8 @@ DenseLayer::DenseLayer(int units, float reg)
 
 DenseLayer::DenseLayer(DenseLayer& other)
 {
-    // Implement copy constructor
+    if(DEBUG) std::cout << "DenseLayer::copy-constructor" << std::endl;
+    // Copy constructor: Copies parameters and vars except for parameter gradients
     _units = other._units;
     _reg = other._reg;
     _built = false;  // Must be rebuilt after copying for validation
@@ -229,9 +278,61 @@ DenseLayer::DenseLayer(DenseLayer& other)
     // Copy the shared pointer to the parameter vector as is
     _parameterVector = other._parameterVector;
     // parameter gradients remains uninitialized here
+    _parameterGradients = nullptr;
 }
 
-vector<int> DenseLayer::computeOutputShape()
+DenseLayer::DenseLayer(DenseLayer&& other)
+{
+    if(DEBUG) std::cout << "DenseLayer::move-constructor" << std::endl;
+    // Move constructor: Moves to new location and nullifies original
+    _units = other._units;
+    _reg = other._reg;
+    _built = other._built;  // If already built then it stays this way
+    _gradientsAvailable = other._gradientsAvailable;  // This shouldn't be needed but just in case
+    // Move the shared pointer to the parameter vector as is
+    _parameterVector = move(other._parameterVector);
+    // Move the parameter gradients
+    _parameterGradients = move(other._parameterGradients);
+}
+
+DenseLayer& DenseLayer::operator=(DenseLayer& other)
+{
+    if(DEBUG) std::cout << "DenseLayer::copy-assignment-operator" << std::endl;
+    // Copy assignment operator: Copies parameters and vars except for parameter gradients
+    _units = other._units;
+    _reg = other._reg;
+    _built = false;  // Must be rebuilt after copying for validation
+    _gradientsAvailable = false;  // New copy doesn't start with gradients
+    // Copy the shared pointer to the parameter vector as is
+    _parameterVector = other._parameterVector;
+    // parameter gradients remains uninitialized here
+    _parameterGradients = nullptr;
+    return *this;
+}
+
+DenseLayer& DenseLayer::operator=(DenseLayer&& other)
+{
+    if(DEBUG) std::cout << "DenseLayer::move-assignment-operator" << std::endl;
+    // Move assignment operator: Moves to new location and nullifies original
+    _units = other._units;
+    _reg = other._reg;
+    _built = other._built;  // If already built then it stays this way
+    _gradientsAvailable = other._gradientsAvailable;  // This shouldn't be needed but just in case
+    // Move the shared pointer to the parameter vector as is
+    _parameterVector = move(other._parameterVector);
+    // Move the parameter gradients
+    _parameterGradients = move(other._parameterGradients);
+    return *this;
+}
+
+DenseLayer::~DenseLayer()
+{
+    if(DEBUG) std::cout << "DenseLayer::destructor" << std::endl;
+    // TODO Implement destructor
+    // Not needed at the moment
+}
+
+vector<int> DenseLayer::getOutputShape()
 {
     // compute output shape 
     // uses input shape from parent and units
@@ -278,13 +379,37 @@ void DenseLayer::build()
 void DenseLayer::forward()
 {
     // allocate memory for outputs using unique ptr, get outputshape
+    vector<int> outputShape = getOutputShape();
+    if(outputShape.size()!=2) throw logic_error("Matrix shape dim is always 2, bad output shape in DenseLayer");
+    shared_ptr<Matrix> outputs = make_shared<Matrix>(outputShape[0], outputShape[1]);
     // compute outputs and set value in memory
-    // call BaseLayer::moveOutputs to move pointer to child
-
+    // Perform dense forward pass with xw+b
+    *outputs = (*_inputs * (*_parameterVector)[0]) + (*_parameterVector)[1];
+    // call BaseLayer::moveOutputs to move outputs pointer to child layers
+    BaseLayer::_sendOutputs(outputs);
 }
 
 void DenseLayer::backward()
 {
+    // allocate memory for derivatives using shared pointers
+    int weightRows, weightCols, biasRows, biasCols, inputRows, inputCols;
+    weightRows = (*_parameterVector)[0].rows();
+    weightCols = (*_parameterVector)[1].cols();
+    biasRows = (*_parameterVector)[0].rows();
+    biasCols = (*_parameterVector)[1].cols();
+    inputRows = (*_inputs).rows();
+    inputCols = (*_inputs).cols();
+    shared_ptr<Matrix> gradsWrtWeightParams = make_shared<Matrix>(weightRows, weightCols);
+    shared_ptr<Matrix> gradsWrtBiasParams = make_shared<Matrix>(biasRows, biasCols);
+    shared_ptr<Matrix> gradsWrtInputs = make_shared<Matrix>(inputRows, inputCols);
+
+    // Compute derivative of gradients wrt inputs (grads * inputs)
+    // Example... 1x3 inputs, 3x5weights, 1x5 outputs, 1x5gradients
+    // 1x3 grads-out. inputs * gradients = feature is multiplied by each parameter in the transposed position and summed
+    //  ()
+    // (*gradsWrtInputs) = _gradients * _inputs;
+    // TODO Start here, finish working through gradients
+
     // allocate memory for and compute derivative of gradients wrt parameters 
     //     include regularization
     //     use a unique ptr, one for grads-wrt-weights and another for grads-wrt-bias
@@ -295,13 +420,13 @@ void DenseLayer::backward()
     // call BaseLayer::backward to move gradients-wrt-inputs pointer to the parent
 }
 
-unique_ptr<vector<Matrix>>&& DenseLayer::extractGradients()
+void DenseLayer::extractGradients(unique_ptr<vector<Matrix>>& gradients)
 {
     // Because hasParams is true, this must be implemented, called once per backward call
     // Return the pointer to _gradients
     if(_gradientsAvailable)
     {
-        return move(_parameterGradients);
+        gradients = move(_parameterGradients);
     } else {
         throw logic_error("Trying to extract gradients when none are available, must first call backward().");
     }
@@ -323,6 +448,82 @@ void DenseLayer::setParams()
 {
     // TODO Figure this out
 }
+
+
+
+ReluLayer::ReluLayer()
+{
+    // TODO 
+}
+
+ReluLayer::ReluLayer(ReluLayer& other)
+{
+    if(DEBUG) std::cout << "ReluLayer::copy-constructor" << std::endl;
+    // Copy constructor: Copies parameters and reinitializes all other build vars
+    _parentLayers = vector<BaseLayer*>();
+    _childLayers = vector<BaseLayer*>();
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+    _built = false;
+}
+
+ReluLayer::ReluLayer(ReluLayer&& other)
+{
+    if(DEBUG) std::cout << "ReluLayer::move-constructor" << std::endl;
+    // Move constructor: Moves to new location and nullifies original
+    // TODO Implement move constructor
+    _parentLayers = other._parentLayers;
+    _childLayers = other._childLayers;
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+    _built = other._built;  // If previously built, it remains built
+
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+}
+
+ReluLayer& ReluLayer::operator=(ReluLayer& other)
+{
+    if(DEBUG) std::cout << "ReluLayer::copy-assignment-operator" << std::endl;
+    // Copy assignment operator: Copies parameters and reinitializes all other build vars
+    // TODO Implement copy assignment operator
+    _parentLayers = vector<BaseLayer*>();
+    _childLayers = vector<BaseLayer*>();
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+    _built = false;
+    return *this;
+}
+
+ReluLayer& ReluLayer::operator=(ReluLayer&& other)
+{
+    if(DEBUG) std::cout << "ReluLayer::move-assignment-operator" << std::endl;
+    // Move assignment operator: Moves to new location and nullifies original
+    // TODO Implement move assignment operator
+    _parentLayers = other._parentLayers;
+    _childLayers = other._childLayers;
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+    _built = other._built;  // If previously built, it remains built
+
+    _inputs = nullptr;
+    _gradients = nullptr;
+    _inputShape = other._inputShape;
+    return *this;
+}
+
+ReluLayer::~ReluLayer()
+{
+    // TODO Implement destructor
+    if(DEBUG) std::cout << "ReluLayer::destructor" << std::endl;
+}
+
+
 
 
 void ReluLayer::build()

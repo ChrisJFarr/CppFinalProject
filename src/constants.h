@@ -4,7 +4,7 @@
 
 const int INPUT_SHAPE = 100;
 
-const bool DEBUG = true;
+const bool DEBUG = false;
 
 typedef float MyDType;
 

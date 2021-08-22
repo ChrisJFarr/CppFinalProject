@@ -100,9 +100,9 @@ void testLayer()
     for(string r: testInputLayerInputSize) {cout << "testing InputLayer::getInputShape... " << r << endl;}
     // Test expected output shape
     vector<string> testInputLayerOutputSize(2);
-    testInputLayerOutputSize[0] = (inputLayer.computeOutputShape()[0] == xData->rows()) ? "success" : "fail";;
-    testInputLayerOutputSize[1] = (inputLayer.computeOutputShape()[1] == xData->cols()) ? "success" : "fail";;
-    for(string r: testInputLayerOutputSize) {cout << "testing InputLayer::computeOutputShape... " << r << endl;}
+    testInputLayerOutputSize[0] = (inputLayer.getOutputShape()[0] == xData->rows()) ? "success" : "fail";;
+    testInputLayerOutputSize[1] = (inputLayer.getOutputShape()[1] == xData->cols()) ? "success" : "fail";;
+    for(string r: testInputLayerOutputSize) {cout << "testing InputLayer::getOutputShape... " << r << endl;}
     // Test InputLayer::setInputs (this invalidates xData, must be reinitialized after moving out)
     cout << "testing InputLayer::setInputs... ";
     inputLayer.setInputs(move(xData));
@@ -357,6 +357,21 @@ int main() {
     // What steps need to be taken to initialize layers, connecting them, 
     // moving them, and copying them.
 
+    // TODO Change course
+    //  on current path, by using a modelVector to build graph copies
+    //  only single-path-graphs would be able to create. (1 to 1 connections only)
+    //  Instead, rely on the connections of the graph for structure
+    //  and simply call a function to create a graph, then use
+    //  get and set to allow sharing of parameters.
+    //  Also consider tensorflow approach to creating a model using
+    //  inputs and outputs to verify the graph is connected.
+    // compile or something, needs to be a function that...
+    //  * runs build on each layer of a graph
+    //  * validates that the inputs connect to the outputs without any dead-ends
+    //  * dynamically deals with forked connections
+    //  
+
+
     // Top Considerations:
     // * location and handling of shared parameters (must be shared by all layers and only initialized once)
     // * size-dependencies between connected layers
@@ -369,49 +384,49 @@ int main() {
     MyDType regularization = 0.0001;
     int inputFeatures = 100;  // Usually this would come from a small data sample
     int denseLayer1Units = 100;
+    string result;
 
     // Initialize a unique ptr to a modelVector on the heap
-    vector<unique_ptr<BaseLayer>> modelVector;
+    // vector<unique_ptr<BaseLayer>> modelVector;  obsolete
     // Initialize each layer (This goes into MyModel)
     
     // Input layer
-    unique_ptr<InputLayer> inputLayer = make_unique<InputLayer>(1, inputFeatures);
-    modelVector.emplace_back(inputLayer);
-    // Reference: https://www.sololearn.com/Discuss/2235791/c-how-to-avoid-object-slicing-with-derived-classes-being-stored-in-base-vector
-    // TODO Need to do more research on object slicing
-    // the key seems to be using more virtual functions
-    //  and perhaps implement getClass and getName (are these used by some default functions?)
-    // Call an inputlayer function on it...
-    // dynamic_cast<InputLayer>(modelVector[0]).computeOutputShape;
-    // TODO Implement BaseLayer and InputLayer...
-    // TODO Copy constructor
-    // TODO Move constructor
-    // TODO Move assigment operator
-    // TODO Copy assignment operator
-    // TODO Destructor
-
-    // // Dense layer
-    unique_ptr<DenseLayer> denseLayer1 = make_unique<DenseLayer>(denseLayer1Units, regularization);
-    denseLayer1->connectParent(*inputLayer);
-    // // Test that denseLayer is the child of inputLayer(inputLayer._childLayers)
-    // cout << "Test that denseLayer1 is child of inputLayer..." << endl;
-    // cout << "do these match?" << endl;
-    // cout<< &denseLayer1 << " denseLayer1 address" << endl;
-    // cout << &(*inputLayer->_childLayers[0]) << " inputLayer child address" << endl;
-    // // Test that inputLayer is the parent of denseLayer1(denseLayer1._parentLayers)
-    // cout << "Test that inputLayer is parent of denseLayer1..." << endl;
-    // cout << "do these match?" << endl;
-    // cout<< &inputLayer << " inputLayer address" << endl;
-    // cout << &(*denseLayer1->_parentLayers[0]) << " denseLayer1 parent address" << endl;
-
-
-    // Relu layer
-
+    InputLayer inputLayer = InputLayer(1, inputFeatures);
+    // modelVector.emplace_back(move(inputLayer));  obsolete
 
     // Dense layer
+    DenseLayer denseLayer1 = DenseLayer(denseLayer1Units, regularization);
+    denseLayer1(inputLayer);  // Connect parent with () operator
+    // Test that denseLayer is the child of inputLayer(inputLayer._childLayers)
+    cout << "Test that denseLayer1 is child of inputLayer...";
+    result = (&denseLayer1 == &(*inputLayer._childLayers[0])) ? "success" : "fail";
+    cout << result << endl;
+    // Test that inputLayer is the parent of denseLayer1(denseLayer1._parentLayers)
+    cout << "Test that inputLayer is parent of denseLayer1...";
+    result = (&inputLayer == &(*denseLayer1._parentLayers[0])) ? "success" : "fail";
+    cout << result << endl;
+
+
+    // TODO Start here
     // Relu layer
+    ReluLayer reluLayer1 = ReluLayer();
+    reluLayer1(denseLayer1);
+
+    
     // Softmax output layer
     // Cross entropy loss layer
+
+    // TODO Test that hasParams returns false for inputlayer, relu, softmax and true for dense
+    cout << "testing hasParams on each layer type:" << endl;
+    cout << "testing InputLayer...";
+    result = (!InputLayer(1, inputFeatures).hasParams()) ? "success" : "fail";  // Expecting false
+    cout << result << endl;
+    cout << "testing DenseLayer...";
+    result = (DenseLayer(denseLayer1Units, regularization).hasParams()) ? "success" : "fail";  // Expecting true
+    cout << result << endl;
+    cout << "testing ReluLayer...";
+    result = (!ReluLayer().hasParams()) ? "success" : "fail";  // Expecting false
+    cout << result << endl;
     
     
     //  Connect the child to the parent
