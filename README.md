@@ -1,10 +1,8 @@
-# CPPND: Capstone Hello World Repo
+# CPPND: Capstone Neural Network Repo
 
-This is a starter repo for the Capstone project in the [Udacity C++ Nanodegree Program](https://www.udacity.com/course/c-plus-plus-nanodegree--nd213).
+This is a work-in-progress Neural Network Library for building general function approximators using C++
 
-The Capstone Project gives you a chance to integrate what you've learned throughout this program. This project will become an important part of your portfolio to share with current and future colleagues and employers.
-
-In this project, you can build your own C++ application starting with this repo, following the principles you have learned throughout this Nanodegree Program. This project will demonstrate that you can independently create applications using a wide range of C++ features.
+A demonstration of how the library works is included below and in main.cpp.
 
 ## Dependencies for Running Locally
 * cmake >= 3.7
