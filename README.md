@@ -138,22 +138,23 @@ In this project, you can build your own C++ application starting with this repo,
 	// Then train the model to learn how to identify handwritten digits!
 
 
+	/*
+	class BaseModel
+	Consumes layers from a connected graph
+	class BaseLayer
+	class Input: public BaseLayer
+	class Dense: public BaseLayer
+	class Relu: public BaseLayer
+	class Softmax: public BaseLayer
+	class CrossEntropyLoss
 
-class BaseModel
-  Consumes layers from a connected graph
-class BaseLayer
-class Input: public BaseLayer
-class Dense: public BaseLayer
-class Relu: public BaseLayer
-class Softmax: public BaseLayer
-class CrossEntropyLoss
+	Utilities
+	class Optimizer
+	* TODO Future implementation of adam optimizer for training a network
+	class DataLoader
+	* Loads and manages data for training a neural network
+	function train (initializes model, trains, and stores final parameters)
 
-Utilities
-  class Optimizer
-    * TODO Future implementation of adam optimizer for training a network
-  class DataLoader
-    * Loads and manages data for training a neural network
-  function train (initializes model, trains, and stores final parameters)
-
-class Matrix
-  The primary data structure utilized is the Matrix class
+	class Matrix
+	The primary data structure utilized is the Matrix class
+	*/
