@@ -46,12 +46,12 @@ In this project, you can build your own C++ application starting with this repo,
 	/*
 	What's happening in DataLoader on initialization?
 	analyze(); 
-					* Open the file to count the rows and compute train, test, and validation sizes 
+		* Open the file to count the rows and compute train, test, and validation sizes 
 	split();
-					* Decide which indices belong to each dataset in random fashion 
+		* Decide which indices belong to each dataset in random fashion 
 	load();
-					* Write train examples to a temporary csv file for random batch reading
-					* Load test and validation examples into memory in Matrix objects
+		* Write train examples to a temporary csv file for random batch reading
+		* Load test and validation examples into memory in Matrix objects
 	*/
 
 	/////// View Sample /////////
@@ -103,30 +103,30 @@ In this project, you can build your own C++ application starting with this repo,
 	///// Perform forward pass on each example ///
 	cout << endl << endl;
 	for(int i=0;i<nExamples;i++)
-					{
-					// Show the example
-					printExample((*xTest)[i], (*yTest)[i]);
-					cout << "performing forward pass on model..." << endl;
-					unique_ptr<Matrix> example;
-					example = make_unique<Matrix>(move((*xTest)[i]));
-					model.forward(move(example));
+		{
+		// Show the example
+		printExample((*xTest)[i], (*yTest)[i]);
+		cout << "performing forward pass on model..." << endl;
+		unique_ptr<Matrix> example;
+		example = make_unique<Matrix>(move((*xTest)[i]));
+		model.forward(move(example));
 
-					// Test the outputs
-					OutputData outputData;
-					model.getOutputs(outputData);
-					Matrix outputs = *outputData.outputs;
-					// Print the random (untrained) predictions
-					float maxPred = 0.0;  // 0 is the lowest softmax can output
-					int maxPredIndex = -1;
-					for(int k=0;k<outputs.cols();k++)
-					{
-									if(outputs(0, k)>maxPred)
-									{
-													maxPred = outputs(0, k);
-													maxPredIndex = k;
-									}
-					}
-					cout << "I'm not trained yet, but I'm guessing this is a " << maxPredIndex << endl;
+		// Test the outputs
+		OutputData outputData;
+		model.getOutputs(outputData);
+		Matrix outputs = *outputData.outputs;
+		// Print the random (untrained) predictions
+		float maxPred = 0.0;  // 0 is the lowest softmax can output
+		int maxPredIndex = -1;
+		for(int k=0;k<outputs.cols();k++)
+		{
+			if(outputs(0, k)>maxPred)
+			{
+				maxPred = outputs(0, k);
+				maxPredIndex = k;
+			}
+		}
+		cout << "I'm not trained yet, but I'm guessing this is a " << maxPredIndex << endl;
 	}
 
 
