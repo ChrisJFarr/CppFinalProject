@@ -1,3 +1,7 @@
+#ifndef UTILS_H_
+#define UTILS_H_
+
+
 #include <string>
 #include <memory>
 #include <vector>
@@ -144,3 +148,5 @@ private:
 //   TODO function predict (populate folders with predictions for evaluation)
 //   TODO function evaluate (should run on the test data)
 //   TODO function accuracy, confusion matrix (used while training and for evaluate)
+
+#endif
