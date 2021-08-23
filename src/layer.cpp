@@ -133,12 +133,15 @@ void BaseLayer::_sendOutputs(shared_ptr<Matrix> outputs)
     // moves the unique pointer to outputs to the child layer
     for(int i=0;i<_childLayers.size();i++)
     {
+        if(DEBUG) cout << "sending outputs to " << _childLayers[i]->getLayerType() << endl;
+        if(DEBUG) cout << "shape of outputs rows:" << outputs->rows() << " cols:" << outputs->cols() << endl;
         // Copy the shared pointer to each child
+        // TODO error might be here
         _childLayers[i]->_inputs = outputs;
         // Update inputs flag
         _hasInputs = false;  // This layer doesn't need its inputs anymore
         _inputs = nullptr;  // Dropping inputs here, won't be needed and can free up some memory
-        _childLayers[i]->_hasInputs = true;
+        (*_childLayers[i])._hasInputs = true;
     }
 }
 
@@ -200,6 +203,8 @@ void InputLayer::build()
     // Validate connnections exist
     if(_childLayers.size()==0) throw logic_error("Attempting to build an InputLayer with no child layer");
     if(_parentLayers.size()!=0) throw logic_error("InputLayer must not have parent connections");
+    // Set the input-shape of the child layers
+    for(BaseLayer* l: _childLayers) l->_setInputShape(getOutputShape());
     _built = true;
 }
 
@@ -214,17 +219,28 @@ void InputLayer::setInputs(unique_ptr<Matrix>&& inputs)
     dim2Test = (*inputs).cols() == getInputShape()[1];
     if(!(dim1Test && dim2Test)) throw logic_error(
         "Passing wrong shape inputs to InputLayer.");
-    _inputs = move(inputs);  // Move from a unique ptr to a shared one in the input layer only
+    // _inputs = move(inputs);  // Move from a unique ptr to a shared one in the input layer only
+    _inputs = make_shared<Matrix>(move(*inputs));
     _hasInputs = true;
 }
 
 void InputLayer::forward()
 {
+    if(DEBUG) cout << "InputLayer::forward()" << endl;
     // First validate that the layer is connected to a child layer
     if(_childLayers.size()==0) throw logic_error(
         "Calling forward on a disconnected graph. \n Error in InputLayer::forward()");
+    // Make a copy of the inputs
+    shared_ptr<Matrix> outputs = make_shared<Matrix>(*_inputs);
     // Pass inputs to child layers as outputs
-    BaseLayer::_sendOutputs(_inputs);
+    if(DEBUG)
+    {
+        cout << "expected input shape rows:" << getInputShape()[0] << " cols:" << getInputShape()[1] << endl;
+        cout << "actual input shape rows:" << _inputs->rows() << " cols:" << _inputs->cols() << endl;
+        cout << "expected output shape rows:" << getOutputShape()[0] << " cols:" << getOutputShape()[1] << endl;
+        cout << "actual output shape rows:" << outputs->rows() << " cols:" << outputs->cols() << endl;
+    }
+    BaseLayer::_sendOutputs(outputs);
 }
 
 void InputLayer::backward()
@@ -352,6 +368,7 @@ void DenseLayer::build()
         // weights-shape (input-shape[1], _units)
         int inputFeatures = getInputShape()[1];
         Matrix weights(inputFeatures, _units);
+        if(DEBUG) cout << "DenseLayer weights shape rows:" << weights.rows() << " cols:" << weights.cols() << endl;
         // Initialize with glorot uniform
         glorotUniformInitializer(weights);
         // Move weights to the shared parameter vector
@@ -363,11 +380,14 @@ void DenseLayer::build()
         // Move bias to the shared parameter vector
         _parameterVector->emplace_back(move(bias));        
     }
+    // Set the input-shape of the child layers
+    for(BaseLayer* l: _childLayers) l->_setInputShape(getOutputShape());
     _built = true;  // After complete, set _built to true
 }
 
 void DenseLayer::forward()
 {
+    if(DEBUG) cout << "DenseLayer::forward()" << endl;
     // allocate memory for outputs using unique ptr, get outputshape
     vector<int> outputShape = getOutputShape();
     if(outputShape.size()!=2) throw logic_error("Matrix shape dim is always 2, bad output shape in DenseLayer");
@@ -375,7 +395,26 @@ void DenseLayer::forward()
     // compute outputs and set value in memory
     // Perform dense forward pass with xw+b
     *outputs = (*_inputs * (*_parameterVector)[0]) + (*_parameterVector)[1];
+    if(DEBUG)
+    {
+        cout << "expected input shape rows:" << getInputShape()[0] << " cols:" << getInputShape()[1] << endl;
+        cout << "actual input shape rows:" << _inputs->rows() << " cols:" << _inputs->cols() << endl;
+        cout << "expected output shape rows:" << getOutputShape()[0] << " cols:" << getOutputShape()[1] << endl;
+        cout << "actual output shape rows:" << outputs->rows() << " cols:" << outputs->cols() << endl;
+    }
     // call BaseLayer::moveOutputs to move outputs pointer to child layers
+    if(DEBUG)
+    {
+    for(int j=0;j<outputs->rows();j++)
+    {
+        for(int k=0;k<outputs->cols();k++)
+        {
+            cout << (*outputs)(j,k);
+        }
+        cout << endl;
+    }
+    }
+
     BaseLayer::_sendOutputs(outputs);
 }
 
@@ -479,11 +518,14 @@ void ReluLayer::build()
     // Validate that a parent and child connection exists
     if(_parentLayers.size() != 1) throw invalid_argument("ReluLayer must have exactly 1 parent layer");
     if(_childLayers.size() == 0) throw invalid_argument("ReluLayer must have a child layer");
+    // Set the input-shape of the child layers
+    for(BaseLayer* l: _childLayers) l->_setInputShape(getOutputShape());
     _built = true;
 }
 
 void ReluLayer::forward()
 {
+    if(DEBUG) cout << "ReluLayer::forward()" << endl;
     // allocate memory for outputs (same size as inputs) on heap with unique_ptr
     vector<int> outputShape = getOutputShape();
     shared_ptr<Matrix> outputs = make_shared<Matrix>(outputShape[0], outputShape[1]);
@@ -495,6 +537,13 @@ void ReluLayer::forward()
             MyDType val = (*_inputs)[j][k];
             (*outputs)[j][k] = (val < 0) ? 0.0 : val;
         }
+    }
+    if(DEBUG)
+    {
+        cout << "expected input shape rows:" << getInputShape()[0] << " cols:" << getInputShape()[1] << endl;
+        cout << "actual input shape rows:" << _inputs->rows() << " cols:" << _inputs->cols() << endl;
+        cout << "expected output shape rows:" << getOutputShape()[0] << " cols:" << getOutputShape()[1] << endl;
+        cout << "actual output shape rows:" << outputs->rows() << " cols:" << outputs->cols() << endl;
     }
     // call BaseLayer::moveOutputs to move pointer to child
     BaseLayer::_sendOutputs(outputs);
@@ -521,11 +570,14 @@ void SoftMaxLayer::build()
     // Validate that a parent and child connection exists
     if(_parentLayers.size() != 1) throw invalid_argument("ReluLayer must have exactly 1 parent layer");
     if(_childLayers.size() == 0) throw invalid_argument("ReluLayer must have a child layer");
+    // Set the input-shape of the child layers
+    for(BaseLayer* l: _childLayers) l->_setInputShape(getOutputShape());
     _built = true;
 }
 
 void SoftMaxLayer::forward()
 {
+    if(DEBUG) cout << "SoftMaxLayer::forward()" << endl;
     // safe softmax
     // https://e2eml.school/softmax.html
     // Send output to child layer
@@ -553,6 +605,13 @@ void SoftMaxLayer::forward()
         {
             (*outputs)[j][k] /= expSum;
         }
+    }
+    if(DEBUG)
+    {
+        cout << "expected input shape rows:" << getInputShape()[0] << " cols:" << getInputShape()[1] << endl;
+        cout << "actual input shape rows:" << _inputs->rows() << " cols:" << _inputs->cols() << endl;
+        cout << "expected output shape rows:" << getOutputShape()[0] << " cols:" << getOutputShape()[1] << endl;
+        cout << "actual output shape rows:" << outputs->rows() << " cols:" << outputs->cols() << endl;
     }
     // call BaseLayer::moveOutputs to move pointer to child
     BaseLayer::_sendOutputs(outputs);

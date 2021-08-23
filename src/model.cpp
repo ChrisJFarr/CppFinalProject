@@ -142,11 +142,11 @@ void BaseModel::forward(unique_ptr<Matrix> &&inputs)
     BaseLayer* startingNode = &(*_inputLayer);
     // Set the inputs into the input layer
     _inputLayer->setInputs(move(inputs));
-    cout << "input layer has inputs..." << startingNode->_hasInputs << endl;
+    if(DEBUG) cout << "input layer has inputs..." << startingNode->_hasInputs << endl;
     // Start search at the input layer
     queue.emplace_back(startingNode);
     // Traverse graph and perform forward pass
-    cout << "traversing graph calling forward()" << endl;
+    if(DEBUG) cout << "traversing graph calling forward()" << endl;
     while(true)
     {
         // If queue empty, break
@@ -163,8 +163,8 @@ void BaseModel::forward(unique_ptr<Matrix> &&inputs)
         for(i=queue.size()-1;i>=0;i--) if(queue[i]->_hasInputs) break;
         if(i<0) throw logic_error("No layer has available inputs for forward pass");
         BaseLayer* currentNode = queue[i];
-        cout << "index:" << i << endl;
-        cout << "shape:" << queue.size() << endl;
+        if(DEBUG) cout << "index:" << i << endl;
+        if(DEBUG) cout << "shape:" << queue.size() << endl;
         // Call forward on the layer
         if(DEBUG) cout << "performing forward pass on " << currentNode->getLayerType() << endl;
         currentNode->forward();
@@ -176,7 +176,9 @@ void BaseModel::forward(unique_ptr<Matrix> &&inputs)
         for(BaseLayer* l: currentNode->_childLayers) 
         {
             // Skip over layers that have already been explored
-            for(BaseLayer* e: explored) if(&(*e)==&(*l)) continue;
+            bool alreadyExplored = false;
+            for(BaseLayer* e: explored) if(&(*e)==&(*l)) alreadyExplored = true;
+            if(alreadyExplored) continue;
             BaseLayer* newPointer = &(*l);
             queue.emplace_back(newPointer);
         }

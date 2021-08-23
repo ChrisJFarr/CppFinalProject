@@ -383,6 +383,8 @@ int main() {
     // Dependencies
     MyDType regularization = 0.0001;
     int denseLayer1Units = 10;
+    int denseLayer2Units = 15;
+    int outputShape = 10;
     string result;
 
     // Initialize a unique ptr to a modelVector on the heap
@@ -393,46 +395,59 @@ int main() {
     InputLayer inputLayer(1, INPUT_SHAPE);
 
     // Dense layer
-    DenseLayer denseLayer1 = DenseLayer(denseLayer1Units, regularization);
+    DenseLayer denseLayer1(denseLayer1Units, regularization);
     denseLayer1(inputLayer);  // Connect parent with () operator
 
     // Relu layer
     ReluLayer reluLayer1;
     reluLayer1(denseLayer1);  // Connect to denselayer
+
+    // Dense layer
+    DenseLayer denseLayer2(denseLayer2Units, regularization);
+    denseLayer2(reluLayer1);  // Connect parent with () operator
+
+    // Relu layer
+    ReluLayer reluLayer2;
+    reluLayer2(denseLayer2);  // Connect to denselayer
+
+    // Output layer layer
+    DenseLayer denseOutputs(outputShape, regularization);
+    denseOutputs(reluLayer2);  // Connect parent with () operator
     
     // Softmax output layer
     SoftMaxLayer softMaxLayer;
-    softMaxLayer(reluLayer1);
+    softMaxLayer(denseOutputs);
 
     // Cross entropy loss layer
     CrossEntropyLossLayer crossEntropyLossLayer;
+    // crossEntropyLossLayer(softMaxLayer);
     crossEntropyLossLayer(softMaxLayer);
 
-    // Test that denseLayer is the child of inputLayer(inputLayer._childLayers)
-    cout << "Test that denseLayer1 is child of inputLayer...";
-    result = (&denseLayer1 == &(*inputLayer._childLayers[0])) ? "success" : "fail";
-    cout << result << endl;
-    // Test that inputLayer is the parent of denseLayer1(denseLayer1._parentLayers)
-    cout << "Test that inputLayer is parent of denseLayer1...";
-    result = (&inputLayer == &(*denseLayer1._parentLayers[0])) ? "success" : "fail";
-    cout << result << endl;
-    // Test that hasParams returns false for inputlayer, relu, softmax and true for dense
-    cout << "testing hasParams on each layer type:" << endl;
-    cout << "testing InputLayer...";
-    result = (!InputLayer(1, INPUT_SHAPE).hasParams()) ? "success" : "fail";  // Expecting false
-    cout << result << endl;
-    cout << "testing DenseLayer...";
-    result = (DenseLayer(denseLayer1Units, regularization).hasParams()) ? "success" : "fail";  // Expecting true
-    cout << result << endl;
-    cout << "testing ReluLayer...";
-    result = (!ReluLayer().hasParams()) ? "success" : "fail";  // Expecting false
-    cout << result << endl;
-    cout << "testing SoftMaxLayer...";
-    result = (!SoftMaxLayer().hasParams()) ? "success" : "fail";  // Expecting false
-    cout << result << endl;
-    cout << "testing CrossEntropyLoss...";
-    result = (!CrossEntropyLossLayer().hasParams()) ? "success" : "fail";  // Expecting false
-    cout << result << endl;
+    // // Test that denseLayer is the child of inputLayer(inputLayer._childLayers)
+    // cout << "Test that denseLayer1 is child of inputLayer...";
+    // result = (&denseLayer1 == &(*inputLayer._childLayers[0])) ? "success" : "fail";
+    // cout << result << endl;
+    // // Test that inputLayer is the parent of denseLayer1(denseLayer1._parentLayers)
+    // cout << "Test that inputLayer is parent of denseLayer1...";
+    // result = (&inputLayer == &(*denseLayer1._parentLayers[0])) ? "success" : "fail";
+    // cout << result << endl;
+    // // Test that hasParams returns false for inputlayer, relu, softmax and true for dense
+    // cout << "testing hasParams on each layer type:" << endl;
+    // cout << "testing InputLayer...";
+    // result = (!InputLayer(1, INPUT_SHAPE).hasParams()) ? "success" : "fail";  // Expecting false
+    // cout << result << endl;
+    // cout << "testing DenseLayer...";
+    // result = (DenseLayer(denseLayer1Units, regularization).hasParams()) ? "success" : "fail";  // Expecting true
+    // cout << result << endl;
+    // cout << "testing ReluLayer...";
+    // result = (!ReluLayer().hasParams()) ? "success" : "fail";  // Expecting false
+    // cout << result << endl;
+    // cout << "testing SoftMaxLayer...";
+    // result = (!SoftMaxLayer().hasParams()) ? "success" : "fail";  // Expecting false
+    // cout << result << endl;
+    // cout << "testing CrossEntropyLoss...";
+    // result = (!CrossEntropyLossLayer().hasParams()) ? "success" : "fail";  // Expecting false
+    // cout << result << endl;
     
     // Create a model
     BaseLayer* inputLayerPtr = &inputLayer;
@@ -467,7 +482,6 @@ int main() {
     cout << "Test Examples:" << endl;
     for(int i=0;i<nExamples;i++) printExample((*xTest)[i], (*yTest)[i]);
     // Perform forward pass using example
-    // TODO implement forward on model
     // Loop over examples and call forward on the model
     cout << "performing forward pass on model..." << endl;
     unique_ptr<Matrix> example;
@@ -479,7 +493,10 @@ int main() {
     OutputData outputData;
     model.getOutputs(outputData);
     Matrix outputs = *outputData.outputs;
+    cout << "model output shape: rows:" << outputs.rows() << " cols:" << outputs.cols() << endl;
     cout << "viewing model outputs..." << endl;
+    // TODO Start here!!! Input shapes aren't being passed across the graph
+    //  see the build method, this should set these attributes properly between each layer.
     for(int j=0;j<outputs.rows();j++)
     {
         for(int k=0;k<outputs.cols();k++)
@@ -488,6 +505,8 @@ int main() {
         }
         cout << endl;
     }
+    // Figure out how to handle the loss calculations
+    // Perform the backward pass
 
 
     //  Connect the child to the parent

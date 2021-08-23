@@ -32,7 +32,7 @@ public:
     void _sendOutputs(shared_ptr<Matrix>);  // Move layer outputs to child inputs in forward pass
     void _sendGradients(shared_ptr<Matrix>);  // Move gradients to parent in backward pass
     // Setters and getters
-    void _setInputShape(vector<int> shape) {for(auto d: shape){_inputShape.emplace_back(d);}};
+    void _setInputShape(vector<int> shape) {_inputShape = shape;};
     vector<int> getInputShape(){return _inputShape;};
     // TODO IDEALLY: Would have some op like "secureParameters" on forward pass, released when the op is done...
 
