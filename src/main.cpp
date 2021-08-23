@@ -14,6 +14,7 @@ valgrind --leak-check=yes --track-origins=yes --log-file=valgrind-out.txt ./Neur
 
 /home/chris/Desktop/final-project/src/data/train.csv
 /home/pi/Desktop/CppFinalProject/src/data/train.csv
+/home/chris/Desktop/CppFinalProject/src/data/train.csv
 */
 
 // Build this here, then move to utils.cpp
