@@ -1,8 +1,33 @@
 # CPPND: Capstone Neural Network Repo
 
-This is a work-in-progress Neural Network Library for building general function approximators using C++
+This is the beginnings of a Neural Network Library for building general function approximators using C++
 
 A demonstration of how the library works is included below and in main.cpp.
+
+The following components have been implemented:
+* DataLoader class: Reads from a CSV file and manages the train/test/validation data split
+	* Splits are random and controlled by the testRatio and validRatio parameters
+	* Data is loaded into Matrix objects
+* Matrix class: Stores a 2d vector with many matrix functions implemented such as matrix-multiply, addition, transpose, etc. Each Matrix object owns its own data.
+* "layer.h/.cpp": Contains a framework for general purpose graph-based neural network layers. So far the InputLayer, ReluLayer, DenseLayer, SoftmaxLayer, and CrossEntropyLossLayer have their forward pass implemented. A BaseLayer class handles the connecting and communication across a connected graph.
+* Model class: Consumes an InputLayer and a loss type layer. It validates a graph and uses the BaseLayer interface to move data objects from one layer to the next to generate predictions. Predictions are random until parameters are trained. The backward pass implementation is a future TODO along with the optimization and training algorithms.
+
+So far this library is able to construct a multi-layer neural network, randomly initialize the weights, and perform a forward pass. This was a large undertaking so far and much work is left to be done before being able to train a model using this library.
+
+**Rubric Points**
+* The project code compiles and runs without errors
+* Control structures are used throughout the libary. See `Matrix::mathMultiply` to see a nested for loop over a 2D vector in `matrix.cpp` line 97.
+*  The code is clearly organized into classes and functions. See `layer.h/.cpp` where many kinds of network layers are organized into a standard interface using virtual functions in `BaseLayer`. Many layer types inherit from `BaseLayer` and implement special functions such as uniform-random intialized weight parameters in the `DenseLayer` class.
+*  The project can read from any dataset that contains a target in the first column and covariates after. This example is reading handwritten integers from the MNIST dataset found in the `src/data` folder of the repo.
+*  The project accepts user input to specify any location of data, the full path to the data is expected and the format required is `.csv`
+*  Object oriented programming: as metioned many classes are used as well as inheritance. See `layer.h/.cpp` for an example of inheritance. Also `model.h/.cpp` uses inheritance.
+*  All data members are explicitly specified as public, protected, or private.
+*  All class member functions are documented with notes throughout the library.
+*  Class encapsulation exists. For example see the `Matrix` class and the protected `_data` member in `matrix.h/.cpp`.
+*  Class hirearchies are logical. For example see `BaseLayer` and the subsequent classes that inherit many utility functions as well as virtual functions that make up the interface of a graph. This allows for polymorphism when storing pointers to the layers which is required for creating general multi-layer neural networks.
+*  Many functions use pass-by-reference in the project code. See `Matrix::mathMultiply` and `Matrix::operator*` among others that accept another Matrix by reference.
+* The project uses at least one smart pointer, both `unique_ptr` and `shared_ptr` are used. See `matrix.h` and the private attribute `_data`, which is a `unique_ptr` to a 2d vector. The only place where raw pointers are used is in the layers to allow for polymorphism in the forward pass. According to valgrind this led to no memory issues as the layers are not responsible for managing other layer's data.
+
 
 ## Dependencies for Running Locally
 * cmake >= 3.7
